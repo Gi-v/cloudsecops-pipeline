@@ -1,10 +1,13 @@
 # Vulnerabilities reviewed and accepted for this image, not blanket-suppressed.
-# Each entry below has no vendor-shipped fix available as of the scan date,
-# and none of them apply to how this container actually runs (no privileged
-# mount operations, no systemd-homed, no untrusted-symlink ACL handling).
-# Re-run the scan periodically and drop any line here whose CVE gets a
-# "Fixed Version" — at that point `apt-get upgrade` in the Dockerfile picks
-# it up automatically and it should be fixed, not ignored.
+# Most entries below have no vendor-shipped fix available as of the scan
+# date; the last two (msgpack, setuptools) do have fixes, but only in a
+# dormant internal copy this image never executes (see their comment).
+# None of these apply to how this container actually runs — no privileged
+# mount operations, no systemd-homed, no SSH/TLS/proxy curl usage, no
+# terminal UI, no ensurepip/venv calls at runtime.
+# Re-run the scan periodically: if apt-get upgrade or a requirements.txt
+# bump makes any of these actually reachable and fixed, drop the line
+# instead of leaving it here as dead weight.
 
 # util-linux (CVE-2026-76642, -78408, -78409, -78410): mount-helper /
 # nsenter / X-mount privilege-escalation issues. This image never invokes
@@ -24,3 +27,35 @@ CVE-2026-54369
 # systemd-homed. systemd-homed does not run inside this container (no
 # systemd as PID 1, no homed service).
 CVE-2026-16742
+
+# curl / libcurl4t64 (CVE-2026-12064, -8286, -8458, -8927): SSH host
+# verification bypass on SFTP/SCP URLs, TLS config mismatch, connection
+# reuse, and proxy-auth-state disclosure. The only curl invocation in this
+# image is the Dockerfile HEALTHCHECK hitting plain HTTP on loopback
+# (`curl -f http://localhost:8000/healthz`) — no SSH/SFTP/SCP, no TLS, no
+# proxy, ever.
+CVE-2026-12064
+CVE-2026-8286
+CVE-2026-8458
+CVE-2026-8927
+
+# ncurses family — libncursesw6, libtinfo6, ncurses-base, ncurses-bin
+# (CVE-2025-69720): terminal buffer overflow. This is a headless FastAPI
+# service; nothing here draws a terminal UI or links against ncurses.
+CVE-2025-69720
+
+# perl-base (CVE-2026-9538): Debian's own fix status is "fix_deferred" —
+# they've decided not to backport it yet, not something apt-get upgrade
+# can pull in. perl itself is never invoked by this application; it's
+# part of the base OS layer only.
+CVE-2026-9538
+
+# msgpack (GHSA-6v7p-g79w-8964) and setuptools CVE-2025-47273 at the old
+# 70.3.0: both are Python's own ensurepip-bundled bootstrap wheel cache,
+# not the site-packages copy pip actually resolves against — confirmed by
+# the Dockerfile's `pip install --upgrade pip setuptools` installing a
+# clean setuptools 84.0.0 into site-packages every build. This container
+# never runs `python -m ensurepip` or `python -m venv`, so that bundled
+# copy is dormant.
+GHSA-6v7p-g79w-8964
+CVE-2025-47273
