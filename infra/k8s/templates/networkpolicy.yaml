@@ -1,0 +1,46 @@
+# Every pod should be selected by at least one NetworkPolicy (CKV2_K8S_6) —
+# without one, any pod anywhere in the cluster can reach these on any port,
+# which is a much bigger blast radius than "the frontend can reach the
+# backend and the ingress controller can reach both." These two policies
+# are intentionally ingress-only: egress isn't restricted here since the
+# backend legitimately talks to several in-cluster services (Postgres,
+# Kafka, OPA, MinIO, Redis) and optionally out to real cloud provider APIs
+# in COLLECTOR_MODE=live — enumerate and lock that down per-environment
+# once the real egress destinations for a given cluster are known.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-backend
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: cloudsecops-backend
+  policyTypes: ["Ingress"]
+  ingress:
+    # Same-namespace only: the frontend calling the API/WS, and (in the
+    # common case of an in-namespace ingress-nginx/traefik) the ingress
+    # controller itself. A cross-namespace ingress controller needs its
+    # own `from:` entry naming that namespace's labels.
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-frontend
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: cloudsecops-frontend
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.port }}
