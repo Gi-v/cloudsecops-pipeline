@@ -1,0 +1,64 @@
+[project]
+name = "cloudsecops-backend"
+version = "1.0.0"
+description = "CloudSecOps Pipeline — event-driven cloud compliance automation backend"
+requires-python = ">=3.12"
+authors = [{ name = "Hareem Ahmad" }]
+
+dependencies = [
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.53.0",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "sqlalchemy[asyncio]>=2.0.54",
+    "asyncpg>=0.31.0",
+    "alembic>=1.20.0",
+    "aiokafka>=0.14.0",
+    "httpx>=0.28.1",
+    "minio>=7.2.20",
+    "redis>=8.1.0",
+    "python-jose[cryptography]>=3.5.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-multipart>=0.0.32",
+    "websockets>=17.1",
+    "orjson>=3.12.0",
+    "structlog>=26.1.0",
+    "slowapi>=0.1.10",
+    "prometheus-fastapi-instrumentator>=8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "httpx>=0.28.1",
+    "ruff>=0.16.7",
+    "mypy>=2.3.1",
+]
+# Optional: install to point collectors at real cloud accounts (COLLECTOR_MODE=live)
+live-collectors = [
+    "boto3>=1.43.95",
+    "google-cloud-resource-manager>=1.18.0",
+    "google-cloud-storage>=3.14.1",
+    "azure-identity>=1.25.3",
+    "azure-mgmt-compute>=38.3.0",
+    "azure-mgmt-storage>=25.1.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+# B008 (function-call-in-default-argument) flags FastAPI's own required DI
+# pattern — `db: AsyncSession = Depends(get_db)`, `limit: int = Query(...)` —
+# which isn't a mutable-default bug, it's how FastAPI resolves dependencies
+# and validates query params. Ignoring it here matches FastAPI's own linting
+# guidance rather than suppressing it call-by-call across every route file.
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

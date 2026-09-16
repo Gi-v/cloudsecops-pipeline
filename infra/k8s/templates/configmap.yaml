@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-backend-config
+data:
+  APP_ENV: {{ .Values.backend.env.APP_ENV | quote }}
+  LOG_LEVEL: {{ .Values.backend.env.LOG_LEVEL | quote }}
+  COLLECTOR_MODE: {{ .Values.backend.env.COLLECTOR_MODE | quote }}
+  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.kafka.externalBootstrapServers | default (printf "%s-kafka:9092" .Release.Name) | quote }}
+  OPA_URL: {{ printf "http://%s-opa:8181" .Release.Name | quote }}
+  MINIO_ENDPOINT: {{ printf "%s-minio:9000" .Release.Name | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.opa.policyConfigMap }}
+  labels:
+    app: cloudsecops-opa
+# Populated via `kubectl create configmap cloudsecops-policies --from-file=policies/`
+# or a CD pipeline step (see infra/github-actions/ci.yml deploy job) — OPA hot-reloads
+# this ConfigMap when mounted as a volume, so policy updates never require a
+# backend rollout (ADR-002).

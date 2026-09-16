@@ -1,0 +1,1621 @@
+/* ── TOKENS ─────────────────────────────────────── */
+/* Monochrome Precision: contrast comes from tone (surface step), weight,
+   and size — never from color, gradient, shadow, or blur. Color is spent
+   only on encoding severity/status (danger/warn/ok/medium), never as a
+   brand or decorative device. --accent/--accent-hover/--accent-muted are
+   kept as token *names* for compatibility with existing component code
+   (MagicCard's cursor-tracking border, focus rings, active-state text) but
+   now resolve to neutral greys, not a brand hue. */
+:root {
+  /* v3 "Premium Redesign" — 6-level surface stack, 3-level borders. A
+     single brand accent (periwinkle) exists now, reserved for active-nav
+     and primary-CTA only — everything else still reads through tone,
+     weight, and size, per the original Monochrome Precision rule. */
+  --s0: #000000;
+  --s1: #070709;
+  --s2: #0d0d10;
+  --s3: #121218;
+  --s4: #1a1a22;
+  --s5: #22222c;
+
+  --void: var(--s0);
+  --bg: var(--s1);
+  --surface: var(--s2);
+  --surface-2: var(--s3);
+  --surface-hover: var(--s3);
+  --surface-active: var(--s4);
+
+  --b1: #141418;
+  --b2: #1e1e26;
+  --b3: #2a2a36;
+
+  --glass: var(--surface);
+  --glass-h: var(--surface-hover);
+  --glass-b: var(--b1);
+  --line: var(--b1);
+  --line-strong: var(--b2);
+  --line-focus: var(--b3);
+
+  --t1: #ededf0;
+  --t2: #7a7a8c;
+  --t3: #3e3e50;
+  --t4: #22222c;
+
+  --brand: #5b6af0;
+  --accent: var(--brand);
+  --accent-hover: #6d7af2;
+  --accent-muted: rgba(91, 106, 240, 0.08);
+
+  --danger: #e03434;
+  --warn: #e8930a;
+  --success: #1db954;
+  --medium: #525266;
+
+  --shadow: none;
+  --shadow-accent: none;
+
+  --mono: "DM Mono", "Courier New", monospace;
+  --display: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius-sm: 5px;
+  --radius: 5px;
+  --radius-lg: 5px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  transition: background 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+  position: relative;
+}
+a {
+  color: var(--t1);
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(240, 240, 240, 0.15);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--t3);
+  border-radius: 4px;
+}
+
+/* ── MOTION SYSTEM ──────────────────────────────── */
+/* Every animation answers "what just loaded", "what just changed", or
+   "what's happening right now" — nothing here is decorative. See
+   docs in each usage site for which question it answers. */
+
+/* Entrance */
+@keyframes cs-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cs-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes cs-scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes cs-kpi-enter {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Live / ambient — kept to 3 simultaneous, desynchronized durations
+   (2s / 2.5s / 3s) so their periphery pulses never fall into sync. */
+@keyframes cs-pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.2; }
+}
+@keyframes cs-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.45); }
+  70%  { box-shadow: 0 0 0 6px rgba(29, 185, 84, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(29, 185, 84, 0); }
+}
+
+/* Feed */
+@keyframes cs-feed-enter {
+  from { opacity: 0; transform: translateY(-6px); max-height: 0; }
+  to   { opacity: 1; transform: translateY(0); max-height: 44px; }
+}
+@keyframes cs-feed-exit {
+  from { opacity: 1; max-height: 44px; }
+  to   { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+}
+@keyframes cs-row-flash {
+  0%   { background: rgba(91, 106, 240, 0.14); }
+  100% { background: transparent; }
+}
+
+/* Scan button */
+@keyframes cs-scan-glow {
+  0%, 100% { border-color: rgba(91, 106, 240, 0.4); }
+  50%      { border-color: rgba(91, 106, 240, 1); }
+}
+@keyframes cs-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes cs-ripple {
+  0%   { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* Drawer */
+@keyframes cs-drawer-enter {
+  from { transform: translateX(100%); opacity: 0.6; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes cs-drawer-exit {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(100%); opacity: 0.6; }
+}
+
+/* Tooltip */
+@keyframes cs-tooltip-in {
+  from { opacity: 0; transform: translateY(3px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Notification badge — spring overshoot makes it pop rather than
+   just appear. */
+@keyframes cs-badge-pop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  70%  { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Eval / results */
+@keyframes cs-eval-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cs-result-enter {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes cs-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ── LAYOUT ─────────────────────────────────────── */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* s0 (true black) against s1 (very dark blue-black main content) creates
+   plane separation via tone alone — the 1px b2 border is the only
+   structural device, no shadow. */
+.sidebar {
+  width: 192px;
+  flex-shrink: 0;
+  background: var(--s0);
+  border-right: 1px solid var(--b2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 50;
+}
+
+.sidebar-logo {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+.sidebar-logo-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-logo-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1);
+  letter-spacing: -0.3px;
+  margin-left: 10px;
+  flex: 1;
+}
+
+/* Persistent status strip — lives here (not the topbar) because
+   connectivity is a standing fact about the app, not a per-view action. */
+.sidebar-live-strip {
+  height: 32px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid var(--b2);
+  flex-shrink: 0;
+}
+.sidebar-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--t3);
+}
+.sidebar-live-dot.connected {
+  background: var(--success);
+  /* Slower (3s vs the connected-badge ring's 2.5s and the critical-count
+     dot's 2s) so peripheral vision never sees two ambient pulses land in
+     sync — see the motion system's 3-animation ambient budget. */
+  animation: cs-pulse-dot 3s ease-in-out infinite;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+}
+
+.sidebar-link {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  color: var(--t3);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 100ms, color 100ms;
+  position: relative;
+}
+.sidebar-link:hover {
+  background: var(--s2);
+  color: var(--t2);
+}
+.sidebar-link.active {
+  background: var(--s3);
+  color: var(--t1);
+  font-weight: 500;
+  box-shadow: inset 2px 0 0 var(--brand);
+}
+.sidebar-link svg {
+  flex-shrink: 0;
+  margin-right: 10px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  flex-shrink: 0;
+}
+.sidebar-user {
+  padding: 12px 16px;
+  border-top: 1px solid var(--b1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar-user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--b3);
+  background: var(--s3);
+  color: var(--t2);
+  font-family: var(--mono);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-user-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t1);
+  line-height: 1.3;
+}
+.sidebar-user-role {
+  font-size: 11px;
+  color: var(--t3);
+  line-height: 1.3;
+}
+
+.sidebar-ham {
+  display: none;
+}
+
+.main-content {
+  flex: 1;
+  padding: 0 40px 60px;
+  max-width: 1320px;
+  min-width: 0;
+}
+
+.page-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--s1);
+  margin: 0 -40px 24px;
+  padding: 14px 40px;
+  border-bottom: 1px solid var(--b1);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.page-title-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--t2);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  font-family: var(--display);
+  margin: 0;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.page-sub {
+  color: var(--t2);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+.page-sub-mono {
+  color: var(--t3);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  margin: 4px 0 0;
+  line-height: 1;
+}
+
+/* ── GLASS / CARDS ──────────────────────────────── */
+/* No transparency, no blur — flat surface tone is the only depth device. */
+.glass {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.card-hover {
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.card-hover:hover {
+  background: var(--surface-hover);
+  border-color: var(--line-strong);
+}
+
+/* ── BUTTONS ────────────────────────────────────── */
+/* Outline-style at rest — contrast via tone/border only, never a solid
+   color fill. Secondary/tertiary actions use .btn-secondary or
+   .filter-btn, which read at the same visual weight on purpose (monochrome
+   has no separate "primary color" to reserve for one action per page). */
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--t2);
+  border: 1px solid var(--b3);
+  padding: 0 14px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  font-family: var(--sans);
+}
+.btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: rgba(237, 237, 240, 0.6);
+  color: var(--t1);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ScanButton's 3-state machine. See ScanButton.tsx. */
+.btn-scan-scanning {
+  animation: cs-scan-glow 0.65s ease-in-out infinite;
+  background: rgba(91, 106, 240, 0.08);
+  color: var(--brand);
+  cursor: not-allowed;
+}
+.btn-scan-done {
+  border-color: rgba(29, 185, 84, 0.5);
+  background: rgba(29, 185, 84, 0.06);
+  color: var(--success);
+}
+@keyframes cs-scan-border {
+  0%, 100% { border-color: var(--line-strong); }
+  50% { border-color: var(--t1); }
+}
+
+.spin {
+  animation: spin 0.65s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.btn-secondary {
+  background: var(--glass);
+  border: 1px solid var(--glass-b);
+  color: var(--t1);
+}
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--glass);
+  border: 1px solid var(--glass-b);
+  color: var(--t2);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.icon-btn:hover {
+  color: var(--t1);
+  border-color: var(--line-focus);
+  background: var(--surface-hover);
+}
+
+.notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--danger);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* ── KPI ────────────────────────────────────────── */
+/* Security Score gets 1.4x the width of the other 3 — it's the single
+   most important number on the dashboard and should visually dominate. */
+.kpi-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  padding: 20px 24px;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card-icon {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  opacity: 0.5;
+}
+.kpi-label {
+  font-size: 11px;
+  color: var(--t3);
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+  font-weight: 400;
+}
+.kpi-value {
+  font-family: var(--mono);
+  font-size: 44px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.kpi-accessory-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+.kpi-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-bottom: 8px;
+  animation: cs-pulse-dot 2s infinite;
+}
+.kpi-footer-note {
+  position: absolute;
+  bottom: 16px;
+  right: 20px;
+  font-size: 10px;
+  font-family: var(--mono);
+}
+.kpi-sparkline {
+  position: absolute;
+  bottom: 18px;
+  right: 20px;
+}
+
+/* Security Score card (bespoke — see SecurityScoreCard.tsx) */
+.score-card {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.score-chip {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--danger);
+}
+.score-label {
+  font-size: 11px;
+  color: var(--t3);
+  font-weight: 400;
+  letter-spacing: 0.3px;
+}
+.score-meta {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--t3);
+  margin-top: 4px;
+}
+.score-micro {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.score-micro-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+}
+.score-micro-row span:first-child {
+  color: var(--t3);
+}
+.score-micro-row span:last-child {
+  color: var(--t2);
+  font-family: var(--mono);
+}
+
+/* Controls Passing card (bespoke — see ControlsPassingCard.tsx) */
+.controls-lockup {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+/* ── CHARTS ─────────────────────────────────────── */
+.charts-row {
+  display: grid;
+  grid-template-columns: 58fr 42fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  padding: 20px 24px;
+  min-height: 260px;
+}
+
+/* Severity panel: donut on the left, ranked list on the right — the chart
+   is a supporting visual, not the centerpiece. */
+.severity-panel {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+.severity-donut-wrap {
+  flex-shrink: 0;
+  width: 180px;
+  height: 180px;
+}
+.severity-list {
+  flex: 1;
+  min-width: 0;
+}
+.severity-row {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  border-bottom: 1px solid var(--b1);
+  gap: 10px;
+  cursor: default;
+}
+.severity-row:last-child {
+  border-bottom: none;
+}
+.severity-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t1);
+}
+.severity-bar-track {
+  width: 80px;
+  height: 2px;
+  background: var(--b1);
+  border-radius: 1px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.severity-bar-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 700ms var(--ease);
+}
+.severity-count {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--t1);
+}
+.severity-pct {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--t3);
+  margin-left: 6px;
+}
+
+/* Framework Coverage ranked list — communicates scores in one glance
+   instead of requiring axis-reading. */
+.framework-list {
+  display: flex;
+  flex-direction: column;
+}
+.framework-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 52px;
+  border-bottom: 1px solid var(--b1);
+  border-radius: var(--radius-sm);
+  transition: background 120ms ease;
+}
+.framework-row:last-child {
+  border-bottom: none;
+}
+.framework-row:hover {
+  background: var(--s3);
+}
+.framework-row:hover .framework-score {
+  color: var(--t1) !important;
+  transition: color 120ms ease;
+}
+.framework-rank {
+  width: 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--t3);
+  flex-shrink: 0;
+}
+.framework-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t1);
+  min-width: 0;
+}
+.framework-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.framework-score {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 400;
+}
+.framework-bar-track {
+  width: 48px;
+  height: 2px;
+  background: var(--b1);
+  border-radius: 1px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.framework-bar-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 700ms var(--ease);
+}
+
+/* Chart.js's `responsive: true` (default) resizes the canvas to match its
+   immediate parent via a ResizeObserver. Give that parent an ambiguous box
+   — `.chart-card` alone, sized by `min-height`, i.e. by its own content —
+   and you get a feedback loop: the canvas sizes to the card, the card
+   (partly) sizes to the canvas, each resize nudges the other, and the
+   chart visibly drifts/grows on its own with nothing touching it. A fixed,
+   content-independent `height` here is what actually breaks that loop —
+   `min-height` cannot substitute for it. */
+.chart-canvas-wrap {
+  position: relative;
+  height: 220px;
+  width: 100%;
+}
+
+.chart-label {
+  font-size: 13px;
+  color: var(--t2);
+  margin-bottom: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── CIS BENCHMARK ROWS ─────────────────────────── */
+/* Left inset color band gives instant severity scanning without reading
+   the percentage — box-shadow color is set inline per row. */
+.cis-row {
+  height: 56px;
+  padding: 0 24px 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: var(--radius-sm);
+  transition: background 120ms ease;
+}
+.cis-row:hover {
+  background: var(--s3);
+}
+.cis-label {
+  width: 140px;
+  flex-shrink: 0;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cis-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--b1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.cis-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+.cis-pct {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  width: 48px;
+  text-align: right;
+}
+
+/* ── TABLE ──────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+th {
+  text-align: left;
+  color: var(--t3);
+  font-weight: 500;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+th.sortable {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+th.sortable:hover {
+  color: var(--t1);
+}
+th .sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  opacity: 0.6;
+  vertical-align: -2px;
+}
+
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+}
+
+tbody tr {
+  transition: background 0.12s;
+}
+/* A faint alternating tint plus a real hover state keeps rows legible
+   past 5 entries instead of blurring into one mass. */
+tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.012);
+}
+tbody tr:hover td {
+  background: var(--surface-hover);
+}
+tbody tr.row-active td {
+  background: var(--surface-active);
+}
+
+/* ── BADGES ─────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  font-family: var(--sans);
+}
+/* Severity chips: colored text only, no background or border — the color
+   itself is the entire signal, nothing decorative surrounding it. */
+.badge {
+  background: none;
+  padding: 0;
+  font-family: var(--mono);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.badge-CRITICAL { color: var(--danger); }
+.badge-HIGH { color: var(--warn); }
+.badge-MEDIUM { color: var(--medium); }
+.badge-LOW, .badge-INFO { color: var(--success); }
+
+/* Severity chips WITH a background — deliberately the one exception to the
+   text-only rule above. A data table benefits from a scannable filled
+   shape per row in a way a feed or a KPI number doesn't. Fixed height/
+   padding so every chip is the same size regardless of label length. */
+.severity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.severity-chip::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.severity-chip-CRITICAL { background: rgba(224, 53, 53, 0.12); border: 1px solid rgba(224, 53, 53, 0.3); color: var(--danger); transition: border-color 120ms ease; }
+.severity-chip-HIGH { background: rgba(232, 146, 10, 0.12); border: 1px solid rgba(232, 146, 10, 0.3); color: var(--warn); transition: border-color 120ms ease; }
+.severity-chip-MEDIUM { background: rgba(82, 82, 102, 0.2); border: 1px solid rgba(82, 82, 102, 0.4); color: var(--t2); transition: border-color 120ms ease; }
+.severity-chip-LOW, .severity-chip-INFO { background: rgba(29, 185, 84, 0.12); border: 1px solid rgba(29, 185, 84, 0.3); color: var(--success); transition: border-color 120ms ease; }
+tbody tr:hover .severity-chip-CRITICAL { border-color: rgba(224, 53, 53, 0.6); }
+tbody tr:hover .severity-chip-HIGH { border-color: rgba(232, 146, 10, 0.6); }
+tbody tr:hover .severity-chip-MEDIUM { border-color: rgba(82, 82, 102, 0.7); }
+tbody tr:hover .severity-chip-LOW, tbody tr:hover .severity-chip-INFO { border-color: rgba(29, 185, 84, 0.6); }
+
+/* Provider badges — Resources table only, provider-specific brand colors
+   (the one deliberate exception to the "no non-severity color" rule,
+   since these are third-party logos' actual colors, not decoration). */
+.provider-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 500;
+  font-family: var(--mono);
+  white-space: nowrap;
+  transition: background 120ms ease;
+}
+.provider-badge-AWS { background: rgba(255, 153, 0, 0.1); color: #ff9900; }
+.provider-badge-GCP { background: rgba(66, 133, 244, 0.1); color: #4285f4; }
+.provider-badge-AZURE { background: rgba(0, 137, 214, 0.1); color: #0089d6; }
+tbody tr:hover .provider-badge-AWS { background: rgba(255, 153, 0, 0.18); }
+tbody tr:hover .provider-badge-GCP { background: rgba(66, 133, 244, 0.18); }
+tbody tr:hover .provider-badge-AZURE { background: rgba(0, 137, 214, 0.18); }
+
+/* ── FILTER BAR ─────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.filter-btn {
+  background: var(--glass);
+  border: 1px solid var(--glass-b);
+  color: var(--t2);
+  padding: 6px 13px;
+  border-radius: 18px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.filter-btn:hover {
+  color: var(--t1);
+}
+.filter-btn.active {
+  border-color: var(--line-focus);
+  color: var(--t1);
+  background: var(--surface-active);
+}
+/* Provider filter tabs (Resources page) — active state borrows each
+   cloud's own brand color instead of the generic active treatment. */
+.filter-btn.active-accent { border-color: var(--brand); color: var(--brand); background: rgba(91, 106, 240, 0.08); }
+.filter-btn.active-aws { border-color: rgba(255, 153, 0, 0.5); color: #ff9900; background: rgba(255, 153, 0, 0.08); }
+.filter-btn.active-gcp { border-color: rgba(66, 133, 244, 0.5); color: #4285f4; background: rgba(66, 133, 244, 0.08); }
+.filter-btn.active-azure { border-color: rgba(0, 137, 214, 0.5); color: #0089d6; background: rgba(0, 137, 214, 0.08); }
+
+.status-select {
+  background: var(--surface);
+  color: var(--t1);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* ── INPUTS ─────────────────────────────────────── */
+textarea,
+.code-input {
+  width: 100%;
+  background: var(--surface-2);
+  color: var(--t1);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 13px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+textarea:focus,
+.code-input:focus {
+  outline: none;
+  border-color: var(--line-focus);
+}
+
+/* ── LIVE FEED ──────────────────────────────────── */
+/* Severity is scannable from the left edge alone — an inset box-shadow
+   color band, set inline per row from the row's severity color — before
+   any text is read. The chip text is a secondary confirmation, no
+   background/border duplicate of the same signal. */
+.live-feed-item {
+  position: relative;
+  height: 40px;
+  padding: 0 13px 0 16px;
+  background: var(--s2);
+  margin-bottom: 2px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border-radius: var(--radius-sm);
+}
+.live-feed-desc {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-feed-tooltip {
+  position: absolute;
+  left: 16px;
+  top: -30px;
+  background: var(--s4);
+  border: 1px solid var(--b3);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 11px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
+  transform-origin: bottom center;
+}
+.live-feed-item:hover .live-feed-tooltip {
+  animation: cs-tooltip-in 120ms ease-out forwards;
+}
+
+.connection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--t3);
+  font-weight: 600;
+}
+.connection-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--t3);
+}
+.connection-dot.connected {
+  background: var(--success);
+  animation: cs-pulse-ring 2.5s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .connection-dot.connected { animation: none; }
+}
+
+/* ── EVIDENCE ───────────────────────────────────── */
+.evidence-chain-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 11px;
+  border-left: 2px solid var(--glass-b);
+  margin-left: 10px;
+  padding-left: 18px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  position: relative;
+}
+.evidence-chain-item::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--t3);
+}
+
+.hash-pill {
+  color: var(--t3);
+  font-size: 10px;
+}
+
+.verify-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.verify-result.valid {
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: var(--success);
+}
+.verify-result.invalid {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: var(--danger);
+}
+
+/* ── EMPTY / SKELETON ───────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 56px 20px;
+  color: var(--t3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.empty-state svg {
+  opacity: 0.5;
+}
+.empty-state-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--t2);
+}
+.empty-state-sub {
+  font-size: 12px;
+  max-width: 320px;
+}
+
+/* ── EMPTY STATE GHOST VARIANTS ─────────────────── */
+/* Each section previews the shape of its populated state rather than
+   showing the same centered icon+text everywhere. */
+.ghost-block {
+  background: var(--b1);
+  border-radius: var(--radius-sm);
+}
+.ghost-table {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.ghost-table-row {
+  height: 14px;
+}
+.ghost-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+.ghost-chip {
+  height: 22px;
+  width: 72px;
+  border-radius: 999px;
+}
+.ghost-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 16px;
+}
+.ghost-card {
+  height: 56px;
+}
+.ghost-columns {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 16px;
+}
+.ghost-panel {
+  flex: 1;
+  height: 110px;
+}
+.ghost-timeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 16px;
+}
+.ghost-timeline-node {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--b2);
+  flex-shrink: 0;
+}
+.ghost-timeline-line {
+  width: 1px;
+  height: 20px;
+  border-left: 1px dashed var(--b2);
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--glass-h) 25%,
+    rgba(255, 255, 255, 0.12) 37%,
+    var(--glass-h) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: 6px;
+}
+[data-theme="light"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(20, 60, 120, 0.06) 25%,
+    rgba(20, 60, 120, 0.14) 37%,
+    rgba(20, 60, 120, 0.06) 63%
+  );
+  background-size: 400% 100%;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* ── MAGIC CARD (mouse-tracking gradient border) ── */
+/* Two-layer background technique from Magic UI's MagicCard: a solid
+   padding-box fill plus a radial-gradient border-box ring, so only the
+   1px border actually shows the gradient — see MagicCard.tsx for the
+   framer-motion wiring that drives --mx/--my via useMotionTemplate. */
+.magic-card {
+  position: relative;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  cursor: default;
+}
+/* The cursor-tracking glow is a decorative device the monochrome spec
+   rules out ("if any animation exists for its own sake, remove it") — kept
+   at near-zero opacity rather than deleted so MagicCard's pointer tracking
+   doesn't need touching elsewhere. */
+.magic-card-glow {
+  display: none;
+}
+.magic-card-content {
+  position: relative;
+  z-index: 2;
+}
+
+/* Spotlight/aurora decoration removed — Monochrome Precision has no
+   ambient color wash. */
+
+/* ── BORDER BEAM ────────────────────────────────── */
+.border-beam-mask {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+.border-beam-dot {
+  position: absolute;
+  aspect-ratio: 1;
+  height: 100%;
+  offset-rotate: 0deg;
+  filter: blur(1px);
+}
+
+/* ── COMMAND PALETTE ────────────────────────────── */
+.cmdk-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 999;
+}
+
+.cmdk-box {
+  position: fixed;
+  top: 14vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, 92vw);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.cmdk-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  color: var(--t2);
+}
+.cmdk-input-row input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--t1);
+  font-size: 14px;
+  font-family: var(--sans);
+}
+.cmdk-input-row kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--t3);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.cmdk-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+}
+.cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--t2);
+}
+.cmdk-item.active {
+  background: var(--surface-active);
+  color: var(--t1);
+}
+.cmdk-item svg {
+  flex-shrink: 0;
+  color: var(--t2);
+}
+.cmdk-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--t3);
+  font-size: 12.5px;
+}
+
+/* ── TOASTER (sonner overrides) ─────────────────── */
+:root {
+  --normal-bg: var(--surface);
+  --normal-border: var(--glass-b);
+  --normal-text: var(--t1);
+}
+[data-sonner-toast] {
+  font-family: var(--sans) !important;
+  border-radius: 10px !important;
+}
+
+/* ── PAGE TRANSITION HELPERS ────────────────────── */
+.page-fade {
+  width: 100%;
+}
+
+/* ── POLICY SIMULATOR ───────────────────────────── */
+.policy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: sticky;
+    top: 0;
+    flex-direction: row;
+    align-items: center;
+    padding: 14px 18px;
+    /* At full-height-sidebar width this bar sits beside the nav column and
+       needs no elevation of its own. Collapsed to a horizontal strip here,
+       it's now the thing everything else scrolls under — give it real
+       background + a shadow so it visibly separates from page content
+       instead of the two blending into one flat mass (see the "cramped"
+       screenshot this was fixing). */
+    background: var(--surface);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28);
+  }
+  [data-theme="light"] .sidebar {
+    box-shadow: 0 4px 24px rgba(90, 60, 160, 0.1);
+  }
+  .sidebar-logo {
+    margin-bottom: 0;
+    gap: 10px;
+  }
+  .sidebar-nav {
+    display: none;
+  }
+  .sidebar-nav.open {
+    display: flex;
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--glass-b);
+    padding: 10px 16px 16px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    z-index: 90;
+  }
+  .sidebar-footer {
+    display: none;
+  }
+  .sidebar-ham {
+    display: flex;
+    margin-left: auto;
+  }
+  .main-content {
+    padding: 0 18px 50px;
+  }
+  .page-header {
+    position: static;
+    margin: 0 -18px 20px;
+    padding: 12px 18px;
+  }
+  .page-title-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .page-title {
+    font-size: 18px;
+  }
+  .kpi-row,
+  .charts-row,
+  .policy-grid {
+    grid-template-columns: 1fr;
+  }
+  .score-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .severity-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .json-editor-gutter {
+    width: 24px;
+  }
+}
+
+/* ── JSON EDITOR (Policy Simulator) ─────────────── */
+.json-editor {
+  display: flex;
+  flex: 1;
+  min-height: 280px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  position: relative;
+}
+.json-editor-gutter {
+  width: 32px;
+  flex-shrink: 0;
+  padding-top: 14px;
+  text-align: right;
+  color: var(--t3);
+  border-right: 1px solid var(--line);
+  user-select: none;
+  white-space: pre;
+}
+.json-editor-body {
+  position: relative;
+  flex: 1;
+}
+.json-editor-highlight,
+.json-editor-textarea {
+  position: absolute;
+  inset: 0;
+  padding: 14px 16px;
+  margin: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.json-editor-highlight {
+  color: var(--t1);
+  pointer-events: none;
+}
+.json-editor-textarea {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--t1);
+  border: none;
+  outline: none;
+  resize: none;
+  overflow: auto;
+}
+.jt-key { color: var(--t2); }
+.jt-string { color: var(--success); }
+.jt-number { color: var(--warn); }
+.jt-bool-true { color: #4a7cf0; }
+.jt-bool-false { color: var(--danger); }
+.jt-punct { color: var(--t3); }
+
+/* ── EVIDENCE DRAWER (Resources page) ────────────── */
+.evidence-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 19;
+}
+.evidence-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(360px, 92vw);
+  background: var(--surface);
+  border-left: 1px solid var(--line-strong);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+.evidence-drawer-header {
+  height: 48px;
+  flex-shrink: 0;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+.evidence-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}

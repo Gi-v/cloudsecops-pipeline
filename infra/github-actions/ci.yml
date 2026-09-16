@@ -1,0 +1,100 @@
+# Copy this file to .github/workflows/ci.yml at the repo root for GitHub
+# Actions to pick it up. Kept under infra/ alongside the rest of the
+# deployment config so it's reviewed in the same place as the Helm chart.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  policy-tests:
+    name: Policy tests (OPA / conftest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/v0.65.0/opa_linux_amd64_static
+          chmod +x opa && sudo mv opa /usr/local/bin/
+      - name: Run policy unit tests
+        run: opa test policies/ -v
+
+  backend-tests:
+    name: Backend tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov ruff
+      - name: Lint
+        working-directory: backend
+        run: ruff check app
+      - name: Run tests
+        working-directory: backend
+        run: pytest -v --cov=app --cov-report=term-missing
+
+  frontend-build:
+    name: Frontend test + typecheck + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install
+      - name: Unit tests
+        working-directory: frontend
+        run: npm run test
+      - name: Typecheck
+        working-directory: frontend
+        run: npx tsc -b --noEmit
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  self-scan:
+    name: Scan-the-scanner (IaC + container security)
+    runs-on: ubuntu-latest
+    needs: [backend-tests]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t cloudsecops-backend:ci ./backend
+      - name: Scan backend image with Trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: cloudsecops-backend:ci
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+      - name: Scan Helm chart + Dockerfiles with Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infra/k8s
+          quiet: true
+
+  docker-build:
+    name: Build & push images
+    runs-on: ubuntu-latest
+    needs: [policy-tests, backend-tests, frontend-build, self-scan]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t cloudsecops/backend:${{ github.sha }} ./backend
+      - name: Build frontend image
+        run: docker build --target prod -t cloudsecops/frontend:${{ github.sha }} ./frontend
+      # Push steps intentionally omitted — wire up your registry credentials
+      # (GHCR/ECR/GAR) as repo secrets before enabling `docker push` here.

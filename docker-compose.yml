@@ -1,0 +1,165 @@
+name: cloudsecops
+
+services:
+  # ── Message backbone ────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.9.10
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.9.10
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── Policy engine ────────────────────────────────
+  opa:
+    image: openpolicyagent/opa:1.20.2
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      # OPA 1.0 switched the default Rego version to v1, which requires the
+      # `contains`/`if` keywords on partial-set rules — every policy under
+      # ./policies (e.g. `violation[v] { ... }`) is written in the older v0
+      # style. --v0-compatible is OPA's own documented migration flag for
+      # this exact situation: parse existing v0 policies unchanged on a
+      # current OPA build, rather than rewriting every .rego file's rule
+      # syntax as its own separate (larger, riskier) change.
+      - "--v0-compatible"
+      - "/policies"
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./policies:/policies:ro
+    # No healthcheck here on purpose: OPA's official image is a minimal
+    # static build with no shell, wget, or curl inside it, so a Docker
+    # HEALTHCHECK CMD has nothing it can actually run — it fails
+    # immediately every time regardless of whether OPA itself is fine,
+    # which is what marked this container "unhealthy" and blocked
+    # `backend`'s `condition: service_healthy` wait below. The backend
+    # already tolerates OPA being briefly unreachable (see
+    # app/policy_engine/opa_client.py — it retries per request and falls
+    # back to a local Python policy evaluator), so it only needs OPA's
+    # container to have *started*, not to have passed a healthcheck that
+    # can't run.
+
+  # ── State stores ─────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cloudsecops
+      POSTGRES_USER: cloudsecops
+      POSTGRES_PASSWORD: cloudsecops_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/app/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudsecops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO stopped publishing to Docker Hub — `minio/minio` there 404s now
+  # ("repository does not exist"). quay.io/minio/minio is their current
+  # public registry for the same images.
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: cloudsecops
+      MINIO_ROOT_PASSWORD: cloudsecops_dev_secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Application ──────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cloudsecops:cloudsecops_dev_password@postgres:5432/cloudsecops
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      OPA_URL: http://opa:8181
+      MINIO_ENDPOINT: minio:9000
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      opa:
+        condition: service_started
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/app:/app/app
+      - ./policies:/policies:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+      VITE_WS_URL: ws://localhost:8000/ws/live
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/src
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres-data:
+  minio-data:

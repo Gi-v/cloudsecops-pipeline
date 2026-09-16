@@ -1,0 +1,60 @@
+backend:
+  image:
+    repository: cloudsecops/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  port: 8000
+  resources:
+    requests: { cpu: "200m", memory: "256Mi" }
+    limits: { cpu: "1000m", memory: "512Mi" }
+  env:
+    APP_ENV: production
+    LOG_LEVEL: INFO
+    COLLECTOR_MODE: simulate
+
+frontend:
+  image:
+    # Built from the frontend Dockerfile's `prod` stage (nginx serving the
+    # static Vite build) — not the `dev` stage docker-compose.yml uses for
+    # local hot-reload. Build with:
+    #   docker build --target prod -t cloudsecops/frontend:latest ./frontend
+    repository: cloudsecops/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  port: 80
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits: { cpu: "500m", memory: "256Mi" }
+
+postgres:
+  enabled: true
+  storage: 10Gi
+  database: cloudsecops
+  user: cloudsecops
+
+kafka:
+  enabled: true
+  # Production deployments should point at a managed Kafka (MSK/Confluent Cloud)
+  # via externalBootstrapServers instead of running Kafka in-cluster.
+  externalBootstrapServers: ""
+
+opa:
+  enabled: true
+  policyConfigMap: cloudsecops-policies
+
+minio:
+  enabled: true
+  storage: 20Gi
+
+ingress:
+  enabled: true
+  host: cloudsecops.example.com
+  tls: true
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
