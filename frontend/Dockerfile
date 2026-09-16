@@ -32,10 +32,16 @@ ENV VITE_WS_URL=${VITE_WS_URL}
 RUN npm run build
 
 # ── prod ─────────────────────────────────────────
-FROM nginx:1.27-alpine AS prod
+# nginxinc/nginx-unprivileged, not nginx:alpine — the Helm chart runs this
+# container as a non-root user with a read-only root filesystem (see
+# infra/k8s security contexts), and the plain nginx image's default config
+# both binds port 80 (root-only) and writes to paths under / at startup.
+# The unprivileged image is built to work under exactly those constraints
+# out of the box.
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS prod
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=5s --start-period=5s --retries=5 \
-    CMD wget -qO- http://localhost:80/ || exit 1
+    CMD wget -qO- http://localhost:8080/ || exit 1
 CMD ["nginx", "-g", "daemon off;"]

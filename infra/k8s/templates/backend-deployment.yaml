@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-backend
+  namespace: {{ .Release.Namespace }}
   labels:
     app: cloudsecops-backend
 spec:
@@ -14,10 +15,26 @@ spec:
       labels:
         app: cloudsecops-backend
     spec:
+      # The backend never talks to the Kubernetes API, so it has no use for
+      # its own pod's service-account token — not mounting it removes a
+      # credential that would otherwise sit in the container for nothing.
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: backend
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: {{ .Values.backend.port }}
           envFrom:
@@ -39,11 +56,27 @@ spec:
               port: {{ .Values.backend.port }}
             initialDelaySeconds: 5
             periodSeconds: 10
+          volumeMounts:
+            # A read-only root filesystem (above) still needs somewhere
+            # writable for Python's own tempfile usage and for
+            # app/evidence/store.py's local-disk fallback path (used only
+            # when MinIO is unreachable — normally dormant in this
+            # deployment, since minio.enabled runs it in-cluster).
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /app/.data
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: data
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-backend
+  namespace: {{ .Release.Namespace }}
 spec:
   selector:
     app: cloudsecops-backend

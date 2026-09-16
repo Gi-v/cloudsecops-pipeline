@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-frontend
+  namespace: {{ .Release.Namespace }}
   labels:
     app: cloudsecops-frontend
 spec:
@@ -14,10 +15,23 @@ spec:
       labels:
         app: cloudsecops-frontend
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: frontend
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: {{ .Values.frontend.port }}
           resources:
@@ -34,11 +48,31 @@ spec:
               port: {{ .Values.frontend.port }}
             initialDelaySeconds: 3
             periodSeconds: 10
+          volumeMounts:
+            # nginx (even the unprivileged image) writes its pidfile,
+            # client body buffers, and proxy/fastcgi/uwsgi/scgi caches
+            # under these paths at startup — needed even to serve static
+            # files, so a read-only root filesystem (above) requires them
+            # mounted as writable volumes explicitly.
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-frontend
+  namespace: {{ .Release.Namespace }}
 spec:
   selector:
     app: cloudsecops-frontend
