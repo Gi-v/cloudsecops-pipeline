@@ -40,11 +40,11 @@ architectural decision the ADR panel on the portfolio site documents as ADR-001.
 
 | Service | Responsibility | Tech |
 |---|---|---|
-| **Collectors** | Enumerate cloud resources (EC2, S3, IAM, KMS, GCE, GCS, Azure VMs/Storage) and publish raw inventory | Python 3.12, asyncio, boto3/google-cloud/azure-sdk (or simulated) |
+| **Collectors** | Enumerate cloud resources (EC2, S3, IAM, KMS, GCE, GCS, Azure VMs/Storage) and publish raw inventory | Python 3.13, asyncio, boto3/google-cloud/azure-sdk (or simulated) |
 | **Policy Engine** | Evaluate every resource against Rego policies (CIS, NIST CSF 2.0, ISO 27001) | Open Policy Agent, Rego |
 | **Evidence Store** | Persist every finding with a SHA-256 hash chain for tamper-evident audit history | MinIO (S3-compatible blobs) + Postgres (metadata/index) |
-| **API** | REST endpoints + WebSocket live feed for the dashboard | FastAPI, SQLAlchemy (async), aiokafka |
-| **Dashboard** | Real-time compliance visualization | React 18, TypeScript, Vite |
+| **API** | REST endpoints + WebSocket live feed, rate-limited scan triggers | FastAPI, SQLAlchemy (async), aiokafka, Redis (via `slowapi`) |
+| **Dashboard** | Real-time compliance visualization + historical trend/risk analytics | React 19, TypeScript, Vite |
 | **CI/CD** | Lint, test, scan-the-scanner, build, deploy | GitHub Actions, conftest, Helm |
 
 ## 4. Data Flow
@@ -69,6 +69,12 @@ architectural decision the ADR panel on the portfolio site documents as ADR-001.
    just logged structurally if no webhook is configured. This is a second, independent
    consumer group on the same topic as the dashboard broadcaster — proof in practice of
    ADR-001's claim that Kafka lets new consumers attach without touching producers.
+7. **Trend & risk analytics.** Every scan's findings stay tied to it via `correlation_id`,
+   so `GET /api/metrics/trend` replays the same severity-weighted score the dashboard's
+   headline number uses, once per historical scan — a compliance-over-time chart computed
+   from data the pipeline was already writing, not a new table. `GET
+   /api/metrics/top-resources` ranks resources by that same weighting applied to their open
+   findings, surfacing which one to fix first instead of just a flat violation count.
 
 ## 5. Why These Choices (ADRs)
 
@@ -103,15 +109,15 @@ intern/
 │   │   ├── websocket/       Live findings feed (WS)
 │   │   └── core/            Settings, logging, request-ID middleware, rate limiting, API-key auth
 │   ├── alembic/             DB migrations, wired to the app's own Settings.database_url
-│   └── tests/               pytest — 37 tests, all runnable with zero external services
+│   └── tests/               pytest — 41 tests, all runnable with zero external services
 ├── policies/             Rego policy source, organized by framework
 │   ├── cis/ nist/ iso27001/
 │   └── tests/            opa test / conftest policy unit tests
-├── frontend/             React + TypeScript dashboard (Vite), dark/light glassmorphic UI
+├── frontend/             React + TypeScript dashboard (Vite), dark glassmorphic UI
 │   ├── src/
-│   │   ├── components/       Sidebar, CommandPalette, SearchInput, charts, skeletons, empty states
+│   │   ├── components/       Sidebar, CommandPalette, SearchInput, charts, TrendChart, TopRiskResources, skeletons, empty states
 │   │   ├── context/           Shared WebSocket connection (LiveFeedContext)
-│   │   ├── hooks/              useTheme, useAnimatedNumber
+│   │   ├── hooks/              useDashboardPolling, useFindingsQuery, useAsync, useAnimatedNumber
 │   │   └── pages/               Dashboard, Findings, Resources, Policy Simulator, Evidence Chain
 │   ├── nginx.conf            SPA static-file config for the production Docker image
 │   └── Dockerfile            multi-stage: dev (vite --host) / build / prod (nginx)

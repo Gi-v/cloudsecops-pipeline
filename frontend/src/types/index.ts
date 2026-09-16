@@ -63,6 +63,25 @@ export interface CISFamilyCompliance {
   percent: number;
 }
 
+export interface ScoreTrendPoint {
+  correlation_id: string;
+  completed_at: string | null;
+  security_score: number;
+  controls_passing: number;
+  controls_total: number;
+  critical_findings: number;
+}
+
+export interface TopRiskResource {
+  resource_id: string;
+  resource_urn: string;
+  provider: CloudProvider;
+  resource_type: string;
+  open_findings: number;
+  risk_score: number;
+  worst_severity: Severity;
+}
+
 export interface PolicyControl {
   control_id: string;
   framework: string;

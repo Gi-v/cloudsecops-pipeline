@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { AlertOctagon, BarChart3, LayoutDashboard, Server } from "lucide-react";
+import { AlertOctagon, BarChart3, LayoutDashboard, Server, TrendingUp } from "lucide-react";
 import { ChartSkeleton, KpiSkeleton } from "@/components/Skeleton";
 import { complianceColor } from "@/components/charts";
 import ControlsPassingCard from "@/components/ControlsPassingCard";
@@ -12,10 +12,12 @@ import ScanButton from "@/components/ScanButton";
 import SecurityScoreCard from "@/components/SecurityScoreCard";
 import SeverityPanel from "@/components/SeverityPanel";
 import TextGenerateEffect from "@/components/TextGenerateEffect";
+import TopRiskResources from "@/components/TopRiskResources";
+import TrendChart from "@/components/TrendChart";
 import { useDashboardPolling } from "@/hooks/useDashboardPolling";
 
 export default function DashboardPage() {
-  const { metrics, families, loading, refresh } = useDashboardPolling();
+  const { metrics, families, trend, topRisk, loading, refresh } = useDashboardPolling();
 
   return (
     <div>
@@ -146,6 +148,33 @@ export default function DashboardPage() {
           )}
         </MagicCard>
       </motion.div>
+
+      <div className="charts-row">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <MagicCard className="chart-card">
+            <div className="chart-label">
+              <TrendingUp size={13} /> Security Score Trend
+            </div>
+            {loading ? <ChartSkeleton /> : <TrendChart points={trend} />}
+          </MagicCard>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.25 }}
+        >
+          <MagicCard className="chart-card">
+            <div className="chart-label">
+              <AlertOctagon size={13} /> Top Risk Resources
+            </div>
+            {loading ? <ChartSkeleton /> : <TopRiskResources resources={topRisk} />}
+          </MagicCard>
+        </motion.div>
+      </div>
 
       <LiveFeedPanel />
     </div>

@@ -1,12 +1,14 @@
 """Aggregate metrics powering the dashboard's KPI row and charts."""
 
-from fastapi import APIRouter, Depends
+import uuid
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
-from app.db.models import Finding, Resource, ScanRun
-from app.schemas.schemas import DashboardMetrics
+from app.db.models import Finding, Resource, ScanRun, Severity
+from app.schemas.schemas import DashboardMetrics, ScoreTrendPoint, TopRiskResource
 
 router = APIRouter(prefix="/api/metrics", tags=["metrics"])
 
@@ -17,6 +19,28 @@ CIS_FAMILIES = {
     "CIS-2": "Storage & Data / Logging",
     "CIS-5": "Networking",
 }
+
+# Shared by the dashboard's headline score and the trend endpoint below —
+# a control's contribution to "how secure is this environment" shouldn't
+# depend on which endpoint happened to compute it. See dashboard_metrics's
+# docstring-length comment (historical) for why this is weighted rather
+# than a flat pass rate: a flat rate lets a thousand passing LOW-severity
+# checks bury one failing CRITICAL one.
+SEVERITY_WEIGHT = {"CRITICAL": 5, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "INFO": 0.5}
+SEVERITY_RANK = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "INFO": 0}
+
+
+def _weighted_score(rows: list[tuple[Severity, int, int]]) -> int:
+    """rows: (severity, total_evaluated, total_passing) per severity bucket.
+    Returns the severity-weighted pass rate as an integer 0-100 (100 when
+    there's nothing to evaluate yet, rather than a misleading 0)."""
+    weighted_total = 0.0
+    weighted_pass = 0.0
+    for severity, total, passing in rows:
+        w = SEVERITY_WEIGHT.get(severity.value, 1)
+        weighted_total += w * total
+        weighted_pass += w * passing
+    return round(100 * weighted_pass / weighted_total) if weighted_total else 100
 
 
 @router.get("/dashboard", response_model=DashboardMetrics)
@@ -74,16 +98,6 @@ async def dashboard_metrics(db: AsyncSession = Depends(get_db)) -> DashboardMetr
     )
     last_scan_at = last_scan_result.scalar_one()
 
-    # Security score: severity-weighted pass rate across every evaluated
-    # control, not a flat per-violation penalty. The previous formula
-    # (100 - sum of per-finding penalties) saturated to 0 as soon as open
-    # findings numbered in the dozens — which they normally do on a
-    # multi-cloud inventory — making the score permanently pinned at 0
-    # regardless of whether 20% or 95% of controls were actually passing.
-    # Weighting each control's pass/fail by its severity and expressing
-    # the result as a percentage keeps the score meaningful (and matching
-    # the "controls passing" ratio) at any finding volume.
-    weights = {"CRITICAL": 5, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "INFO": 0.5}
     severity_totals_result = await db.execute(
         select(
             Finding.severity,
@@ -91,13 +105,9 @@ async def dashboard_metrics(db: AsyncSession = Depends(get_db)) -> DashboardMetr
             func.sum(case((Finding.passed == True, 1), else_=0)),  # noqa: E712
         ).group_by(Finding.severity)
     )
-    weighted_total = 0.0
-    weighted_pass = 0.0
-    for sev, sev_total, sev_passing in severity_totals_result.all():
-        w = weights.get(sev.value, 1)
-        weighted_total += w * sev_total
-        weighted_pass += w * (sev_passing or 0)
-    security_score = round(100 * weighted_pass / weighted_total) if weighted_total else 100
+    security_score = _weighted_score(
+        [(sev, total, passing or 0) for sev, total, passing in severity_totals_result.all()]
+    )
 
     return DashboardMetrics(
         security_score=security_score,
@@ -144,3 +154,102 @@ async def cis_family_compliance(db: AsyncSession = Depends(get_db)) -> list[dict
             "percent": pct,
         })
     return out
+
+
+@router.get("/trend", response_model=list[ScoreTrendPoint])
+async def security_score_trend(
+    limit: int = Query(20, le=100), db: AsyncSession = Depends(get_db)
+) -> list[ScoreTrendPoint]:
+    """The dashboard's headline score is a single snapshot; this is the same
+    score computed per scan, oldest first, so the frontend can chart
+    whether the environment's compliance posture is actually improving —
+    not just what it is right now."""
+    runs_result = await db.execute(
+        select(ScanRun)
+        .where(ScanRun.completed_at.is_not(None))
+        .order_by(ScanRun.completed_at.desc())
+        .limit(limit)
+    )
+    runs = list(reversed(runs_result.scalars().all()))
+    if not runs:
+        return []
+
+    correlation_ids = [r.correlation_id for r in runs]
+    findings_result = await db.execute(
+        select(
+            Finding.correlation_id,
+            Finding.severity,
+            func.count(Finding.id),
+            func.sum(case((Finding.passed == True, 1), else_=0)),  # noqa: E712
+        )
+        .where(Finding.correlation_id.in_(correlation_ids))
+        .group_by(Finding.correlation_id, Finding.severity)
+    )
+    by_run: dict[str, list[tuple[Severity, int, int]]] = {}
+    for correlation_id, severity, total, passing in findings_result.all():
+        by_run.setdefault(correlation_id, []).append((severity, total, passing or 0))
+
+    points = []
+    for run in runs:
+        rows = by_run.get(run.correlation_id, [])
+        total_evaluated = sum(total for _, total, _ in rows)
+        total_passing = sum(passing for _, _, passing in rows)
+        critical_open = sum(
+            total - passing for sev, total, passing in rows if sev.value == "CRITICAL"
+        )
+        points.append(
+            ScoreTrendPoint(
+                correlation_id=run.correlation_id,
+                completed_at=run.completed_at,
+                security_score=_weighted_score(rows),
+                controls_passing=total_passing,
+                controls_total=total_evaluated,
+                critical_findings=critical_open,
+            )
+        )
+    return points
+
+
+@router.get("/top-resources", response_model=list[TopRiskResource])
+async def top_risk_resources(
+    limit: int = Query(5, le=20), db: AsyncSession = Depends(get_db)
+) -> list[TopRiskResource]:
+    """Which resources need attention first — ranked by severity-weighted
+    open-finding count, not just raw count (one open CRITICAL outranks
+    five open LOWs), reusing the same SEVERITY_WEIGHT table as the score
+    itself so "risky" means the same thing everywhere on the dashboard."""
+    result = await db.execute(
+        select(
+            Resource.id,
+            Resource.resource_urn,
+            Resource.provider,
+            Resource.resource_type,
+            Finding.severity,
+            func.count(Finding.id),
+        )
+        .join(Finding, Finding.resource_id == Resource.id)
+        .where(Finding.passed == False)  # noqa: E712
+        .group_by(Resource.id, Finding.severity)
+    )
+
+    by_resource: dict[uuid.UUID, dict] = {}
+    for rid, urn, provider, rtype, severity, count in result.all():
+        entry = by_resource.setdefault(
+            rid,
+            {
+                "resource_id": rid,
+                "resource_urn": urn,
+                "provider": provider,
+                "resource_type": rtype,
+                "open_findings": 0,
+                "risk_score": 0.0,
+                "worst_severity": "INFO",
+            },
+        )
+        entry["open_findings"] += count
+        entry["risk_score"] += SEVERITY_WEIGHT.get(severity.value, 1) * count
+        if SEVERITY_RANK[severity.value] > SEVERITY_RANK[entry["worst_severity"]]:
+            entry["worst_severity"] = severity.value
+
+    ranked = sorted(by_resource.values(), key=lambda e: e["risk_score"], reverse=True)[:limit]
+    return [TopRiskResource(**r) for r in ranked]

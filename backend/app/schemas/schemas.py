@@ -149,3 +149,22 @@ class CISFamilyCompliance(BaseModel):
     control_count: int
     passing: int
     percent: float
+
+
+class ScoreTrendPoint(BaseModel):
+    correlation_id: str
+    completed_at: datetime | None
+    security_score: int
+    controls_passing: int
+    controls_total: int
+    critical_findings: int
+
+
+class TopRiskResource(BaseModel):
+    resource_id: uuid.UUID
+    resource_urn: str
+    provider: CloudProvider
+    resource_type: str
+    open_findings: int
+    risk_score: float
+    worst_severity: Severity

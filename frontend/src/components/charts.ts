@@ -3,12 +3,25 @@ import {
   BarElement,
   CategoryScale,
   Chart,
+  Filler,
   Legend,
   LinearScale,
+  LineElement,
+  PointElement,
   Tooltip,
 } from "chart.js";
 
-Chart.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+Chart.register(
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Filler,
+  Tooltip,
+  Legend,
+);
 
 /** Severity is a functional signal, not a brand statement — colors here
  * are pulled from the same danger/warn/medium/success tokens used
@@ -40,4 +53,18 @@ export function complianceColor(pct: number): string {
 export function chartTextColor(): string {
   if (typeof document === "undefined") return "#9498A3";
   return getComputedStyle(document.documentElement).getPropertyValue("--t2").trim() || "#9498A3";
+}
+
+/** `complianceColor`/`SEVERITY_COLORS`-style helpers return `"var(--x)"`
+ * strings, which the DOM resolves automatically in a React `style` prop —
+ * but Canvas 2D's `fillStyle`/`strokeStyle` don't resolve CSS custom
+ * properties at all, so handing Chart.js a raw `var(--danger)` silently
+ * renders as black instead of red. This resolves it to the actual
+ * computed color first, the same way `chartTextColor` already does for
+ * `--t2`, so a color token works in both a styled `<span>` and a canvas. */
+export function resolveThemeColor(cssVarExpr: string): string {
+  const match = /var\((--[\w-]+)\)/.exec(cssVarExpr);
+  if (!match) return cssVarExpr;
+  if (typeof document === "undefined") return "#9498A3";
+  return getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim() || "#9498A3";
 }

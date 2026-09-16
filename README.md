@@ -1,11 +1,11 @@
 <div align="center">
 
-<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:0f0f1a,50:1a1a3e,100:2d1b4e&height=200&section=header&text=CloudSecOps%20Pipeline&fontSize=52&fontColor=e2e2f5&fontAlignY=38&desc=Event-driven%20cloud%20compliance%20automation&descAlignY=58&descSize=18&animation=fadeIn" alt="CloudSecOps Pipeline" />
+<img width="100%" src="./.github/assets/banner.svg" alt="CloudSecOps Pipeline — collect, evaluate, evidence, broadcast, alert" />
 
-<a href="https://github.com/Gi-v/final-project/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Gi-v/final-project/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=0f0f1a&color=6d5efc" alt="CI status" /></a>
-<img src="https://img.shields.io/badge/backend-37%20tests-6d5efc?style=for-the-badge&labelColor=0f0f1a" alt="backend tests" />
-<img src="https://img.shields.io/badge/frontend-65%20tests-6d5efc?style=for-the-badge&labelColor=0f0f1a" alt="frontend tests" />
-<img src="https://img.shields.io/badge/license-MIT-6d5efc?style=for-the-badge&labelColor=0f0f1a" alt="MIT license" />
+<a href="https://github.com/Gi-v/final-project/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Gi-v/final-project/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=0f0f1a&color=5b6af0" alt="CI status" /></a>
+<img src="https://img.shields.io/badge/backend-41%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="backend tests" />
+<img src="https://img.shields.io/badge/frontend-71%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="frontend tests" />
+<img src="https://img.shields.io/badge/license-MIT-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="MIT license" />
 
 <br/>
 
@@ -53,7 +53,7 @@ replacing a manual, spreadsheet-driven cloud audit with a real-time event pipeli
 <td width="50%">
 
 **Compliance Dashboard**
-Security score, severity breakdown, framework coverage, and a live WebSocket findings feed — all real data from a real scan.
+Security score, severity breakdown, framework coverage, a score-over-time trend, top-risk resources, and a live WebSocket findings feed — all real data from a real scan.
 
 </td>
 <td width="50%">
@@ -112,30 +112,42 @@ flowchart LR
     end
 
     OPA{{"OPA / Rego\n21 controls · 3 frameworks"}}
+    FALLBACK["pure-Python fallback\n(OPA unreachable)"]
     PG[(PostgreSQL)]
     MINIO[(MinIO\nSHA-256 hash chain)]
+    REDIS[(Redis\nrate limiter)]
     WS[/WebSocket/]
-    DASH[React Dashboard]
+    API[FastAPI]
+    DASH["React Dashboard\ntrend + top-risk analytics"]
     HOOK[[Webhook / Log alert]]
 
     AWS & GCP & AZ --> RAW
     RAW --> OPA
+    OPA -.unreachable.-> FALLBACK
     OPA --> PG
     OPA --> MINIO
     OPA --> ENR
     ENR --> WS --> DASH
     ENR -- CRITICAL --> ALERT --> HOOK
+    API -- rate limits scans --> REDIS
+    API --> WS
+    DASH -.REST.-> API
 
-    style Kafka fill:#1a1a3e,stroke:#6d5efc,color:#e2e2f5
-    style OPA fill:#2d1b4e,stroke:#8c7cff,color:#e2e2f5
-    style DASH fill:#0f0f1a,stroke:#6d5efc,color:#e2e2f5
+    style Kafka fill:#121218,stroke:#5b6af0,color:#ededf0
+    style OPA fill:#1a1a22,stroke:#5b6af0,color:#ededf0
+    style DASH fill:#0d0d10,stroke:#5b6af0,color:#ededf0
+    style FALLBACK fill:#0d0d10,stroke:#3e3e50,color:#7a7a8c,stroke-dasharray: 4 3
 ```
 
 Six independently-scaling stages connected by Kafka rather than direct calls, so a slow
 policy evaluation never blocks collection and a dashboard reconnect never blocks
-evaluation. Every architectural choice — Kafka as the backbone, Rego as policy-as-code,
-the hash-chain evidence design, `asyncio` for collection — has a written decision record
-in [`docs/adr/`](docs/adr):
+evaluation. Every external dependency degrades gracefully instead of taking the pipeline
+down with it: OPA unreachable falls back to an equivalent pure-Python evaluator, MinIO
+unreachable falls back to local-disk evidence storage, Redis unreachable falls back to
+in-memory rate limiting — the demo runs end-to-end even with zero infra containers up.
+Every architectural choice — Kafka as the backbone, Rego as policy-as-code, the
+hash-chain evidence design, `asyncio` for collection — has a written decision record in
+[`docs/adr/`](docs/adr):
 
 | ADR | Decision |
 |---|---|
@@ -260,11 +272,11 @@ npm run dev
 ## ✅ Verification
 
 ```bash
-# Backend — 37/37 passing
+# Backend — 41/41 passing
 cd backend && pytest -q
 ruff check app && mypy app
 
-# Frontend — 65/65 passing
+# Frontend — 71/71 passing
 cd frontend && npm test
 npx tsc -b --noEmit && npx eslint . && npm run build
 ```
@@ -305,6 +317,6 @@ MIT — see [LICENSE](LICENSE).
 
 <div align="center">
 
-<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:2d1b4e,50:1a1a3e,100:0f0f1a&height=100&section=footer" alt="footer" />
+<img width="100%" src="./.github/assets/footer.svg" alt="" />
 
 </div>

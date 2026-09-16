@@ -10,6 +10,8 @@ import type {
   PolicyEvalResult,
   Resource,
   ScanRun,
+  ScoreTrendPoint,
+  TopRiskResource,
 } from "@/types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -69,6 +71,12 @@ export const endpoints = {
   getDashboardMetrics: () => api.get<DashboardMetrics>("/api/metrics/dashboard"),
 
   getCisFamilies: () => api.get<CISFamilyCompliance[]>("/api/metrics/cis-families"),
+
+  getScoreTrend: (limit = 20) =>
+    api.get<ScoreTrendPoint[]>("/api/metrics/trend", { params: { limit } }),
+
+  getTopRiskResources: (limit = 5) =>
+    api.get<TopRiskResource[]>("/api/metrics/top-resources", { params: { limit } }),
 };
 
 export function getWebSocketUrl(): string {
