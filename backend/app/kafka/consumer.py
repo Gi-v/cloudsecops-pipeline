@@ -29,7 +29,7 @@ class KafkaConsumerClient:
         self.settings = get_settings()
         self.topic = topic
         self.group_id = group_id
-        self._consumer: "AIOKafkaConsumer | None" = None
+        self._consumer: AIOKafkaConsumer | None = None
         self._task: asyncio.Task | None = None
 
     async def _consume_real(self, handler: Handler) -> None:

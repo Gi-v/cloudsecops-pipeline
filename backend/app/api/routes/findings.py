@@ -66,7 +66,9 @@ async def list_findings(
     provider: CloudProvider | None = None,
     framework: str | None = None,
     status: FindingStatus | None = None,
-    search: str | None = Query(None, description="Free-text search over title, control ID, description"),
+    search: str | None = Query(
+        None, description="Free-text search over title, control ID, description"
+    ),
     limit: int = Query(100, le=500),
     offset: int = 0,
     db: AsyncSession = Depends(get_db),

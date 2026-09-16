@@ -56,7 +56,9 @@ class Resource(Base):
     region: Mapped[str] = mapped_column(String(64))
     account_id: Mapped[str] = mapped_column(String(128))
     raw_config: Mapped[dict] = mapped_column(JSONB)
-    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     last_scanned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -76,7 +78,8 @@ class Finding(Base):
     )
     resource_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("resources.id"), index=True)
     control_id: Mapped[str] = mapped_column(String(64), index=True)  # e.g. "CIS-2.1.2"
-    framework: Mapped[str] = mapped_column(String(64), index=True)  # e.g. "CIS v2", "NIST CSF", "ISO 27001"
+    # e.g. "CIS v2", "NIST CSF", "ISO 27001"
+    framework: Mapped[str] = mapped_column(String(64), index=True)
     severity: Mapped[Severity] = mapped_column(Enum(Severity), index=True)
     status: Mapped[FindingStatus] = mapped_column(
         Enum(FindingStatus), default=FindingStatus.OPEN, index=True

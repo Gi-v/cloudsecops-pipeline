@@ -27,8 +27,9 @@ async def list_sample_resources() -> dict[str, dict]:
 @router.post("/evaluate", response_model=PolicyEvalResult)
 async def evaluate_resource(req: PolicyEvalRequest) -> PolicyEvalResult:
     result = await opa_client.evaluate(req.resource)
+    fallback_urn = req.resource.get("config", {}).get("bucket_name", "ad-hoc")
     return PolicyEvalResult(
-        resource_urn=req.resource.get("resource_urn", req.resource.get("config", {}).get("bucket_name", "ad-hoc")),
+        resource_urn=req.resource.get("resource_urn", fallback_urn),
         violations=result.get("violations", []),
         passed_controls=result.get("passed_controls", []),
         evaluated_at=datetime.now(UTC),

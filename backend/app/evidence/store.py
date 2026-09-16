@@ -50,7 +50,7 @@ def _content_hash(payload: dict[str, Any], prev_hash: str) -> str:
 class EvidenceStore:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self._minio: "Minio | None" = None
+        self._minio: Minio | None = None
         self._available = False
         self._init_minio()
 
@@ -121,7 +121,9 @@ class EvidenceStore:
         content_hash = _content_hash(payload, prev_hash)
         object_key = f"{_safe_urn(resource_urn)}/{sequence:06d}-{content_hash[:12]}.json"
 
-        self._put_blob(object_key, {"payload": payload, "prev_hash": prev_hash, "sequence": sequence})
+        self._put_blob(
+            object_key, {"payload": payload, "prev_hash": prev_hash, "sequence": sequence}
+        )
 
         record = EvidenceRecord(
             resource_urn=resource_urn,
@@ -179,7 +181,10 @@ class EvidenceStore:
                     "valid": False,
                     "chain_length": len(records),
                     "broken_at_sequence": rec.sequence,
-                    "message": f"Content hash mismatch at sequence {rec.sequence} — evidence was altered.",
+                    "message": (
+                        f"Content hash mismatch at sequence {rec.sequence} — "
+                        "evidence was altered."
+                    ),
                 }
             expected_prev = rec.content_hash
 

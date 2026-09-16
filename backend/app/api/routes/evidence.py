@@ -12,7 +12,9 @@ router = APIRouter(prefix="/api/evidence", tags=["evidence"])
 
 
 @router.get("/{resource_urn:path}/verify", response_model=EvidenceVerifyResult)
-async def verify_evidence_chain(resource_urn: str, db: AsyncSession = Depends(get_db)) -> EvidenceVerifyResult:
+async def verify_evidence_chain(
+    resource_urn: str, db: AsyncSession = Depends(get_db)
+) -> EvidenceVerifyResult:
     result = await evidence_store.verify_chain(db, resource_urn)
     return EvidenceVerifyResult(**result)
 
@@ -23,7 +25,9 @@ async def verify_evidence_chain(resource_urn: str, db: AsyncSession = Depends(ge
 # "verify" as part of the URN, finding no matching records, and silently
 # returning an empty list instead of ever reaching the handler above.
 @router.get("/{resource_urn:path}", response_model=list[EvidenceRecordOut])
-async def list_evidence(resource_urn: str, db: AsyncSession = Depends(get_db)) -> list[EvidenceRecordOut]:
+async def list_evidence(
+    resource_urn: str, db: AsyncSession = Depends(get_db)
+) -> list[EvidenceRecordOut]:
     result = await db.execute(
         select(EvidenceRecord)
         .where(EvidenceRecord.resource_urn == resource_urn)

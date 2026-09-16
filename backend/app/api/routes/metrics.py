@@ -25,7 +25,9 @@ async def dashboard_metrics(db: AsyncSession = Depends(get_db)) -> DashboardMetr
     total_findings = total_findings_result.scalar_one() or 0
 
     critical_result = await db.execute(
-        select(func.count(Finding.id)).where(Finding.severity == "CRITICAL", Finding.passed == False)  # noqa: E712
+        select(func.count(Finding.id)).where(
+            Finding.severity == "CRITICAL", Finding.passed == False  # noqa: E712
+        )
     )
     critical_findings = critical_result.scalar_one() or 0
 

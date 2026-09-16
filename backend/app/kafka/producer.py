@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 class KafkaProducerClient:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self._producer: "AIOKafkaProducer | None" = None
+        self._producer: AIOKafkaProducer | None = None
         self._fallback_queues: dict[str, asyncio.Queue] = {}
         self._connected = False
 

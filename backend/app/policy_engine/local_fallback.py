@@ -12,7 +12,9 @@ from typing import Any
 Violation = dict[str, Any]
 
 
-def _v(control_id: str, framework: str, severity: str, title: str, description: str, remediation: str) -> Violation:
+def _v(
+    control_id: str, framework: str, severity: str, title: str, description: str, remediation: str
+) -> Violation:
     return {
         "control_id": control_id,
         "framework": framework,
@@ -84,8 +86,15 @@ def evaluate_local(resource: dict[str, Any]) -> dict[str, Any]:
     elif rtype == "aws_security_group":
         gid, gname = cfg.get("group_id", "unknown"), cfg.get("group_name", "unknown")
         ingress = cfg.get("ingress_rules", [])
-        open_ssh = any(r.get("from_port", 999) <= 22 <= r.get("to_port", 0) and r.get("cidr") == "0.0.0.0/0" for r in ingress)
-        open_rdp = any(r.get("from_port", 9999) <= 3389 <= r.get("to_port", 0) and r.get("cidr") == "0.0.0.0/0" for r in ingress)
+        open_ssh = any(
+            r.get("from_port", 999) <= 22 <= r.get("to_port", 0) and r.get("cidr") == "0.0.0.0/0"
+            for r in ingress
+        )
+        open_rdp = any(
+            r.get("from_port", 9999) <= 3389 <= r.get("to_port", 0)
+            and r.get("cidr") == "0.0.0.0/0"
+            for r in ingress
+        )
 
         if open_ssh:
             violations.append(_v("CIS-5.2", "CIS v2", "CRITICAL",
@@ -142,13 +151,16 @@ def evaluate_local(resource: dict[str, Any]) -> dict[str, Any]:
         if cfg.get("public_iam"):
             violations.append(_v("NIST-PR.DS-2", "NIST CSF", "CRITICAL",
                 "GCS bucket has public IAM binding",
-                f"Bucket {cfg.get('bucket_name')} grants allUsers/allAuthenticatedUsers IAM access.",
+                f"Bucket {cfg.get('bucket_name')} grants allUsers/allAuthenticatedUsers "
+                "IAM access.",
                 "Remove public IAM bindings and enable uniform bucket-level access."))
         else:
             passed.append("NIST-PR.DS-2")
 
     elif rtype == "gcp_firewall_rule":
-        open_ssh = "0.0.0.0/0" in cfg.get("source_ranges", []) and 22 in cfg.get("allowed_ports", [])
+        open_ssh = "0.0.0.0/0" in cfg.get("source_ranges", []) and 22 in cfg.get(
+            "allowed_ports", []
+        )
         if open_ssh:
             violations.append(_v("NIST-PR.AC-3", "NIST CSF", "CRITICAL",
                 "GCP firewall allows SSH from anywhere",
@@ -188,7 +200,8 @@ def evaluate_local(resource: dict[str, Any]) -> dict[str, Any]:
         if cfg.get("min_tls_version") != "TLS1_2":
             violations.append(_v("ISO-A.9.4.1", "ISO 27001", "MEDIUM",
                 "Azure storage account allows outdated TLS",
-                f"Storage account {name} has minimum TLS version set to {cfg.get('min_tls_version')}.",
+                f"Storage account {name} has minimum TLS version set to "
+                f"{cfg.get('min_tls_version')}.",
                 "Set the minimum TLS version to TLS1_2 or higher."))
         else:
             passed.append("ISO-A.9.4.1")
@@ -211,7 +224,8 @@ def evaluate_local(resource: dict[str, Any]) -> dict[str, Any]:
         if is_open:
             violations.append(_v("ISO-A.13.1.1", "ISO 27001", "CRITICAL",
                 "Azure NSG rule allows unrestricted inbound access",
-                f"NSG rule {cfg.get('rule_name')} allows inbound traffic on port {cfg.get('destination_port_range')} from any source.",
+                f"NSG rule {cfg.get('rule_name')} allows inbound traffic on port "
+                f"{cfg.get('destination_port_range')} from any source.",
                 "Scope the source address prefix to known ranges."))
         else:
             passed.append("ISO-A.13.1.1")

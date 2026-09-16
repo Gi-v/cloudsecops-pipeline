@@ -103,7 +103,10 @@ class AWSCollector(BaseCollector):
                         "resource_type": "aws_s3_bucket",
                         "region": self.settings.aws_default_region,
                         "account_id": session.client("sts").get_caller_identity()["Account"],
-                        "config": {"bucket_name": name, "acl": "public-read" if public else "private"},
+                        "config": {
+                            "bucket_name": name,
+                            "acl": "public-read" if public else "private",
+                        },
                     })
                 return out
 

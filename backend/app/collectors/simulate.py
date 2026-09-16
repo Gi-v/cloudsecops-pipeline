@@ -58,9 +58,13 @@ def gen_aws_security_groups(n: int = 4) -> list[dict]:
         if open_ssh:
             ingress.append({"from_port": 22, "to_port": 22, "cidr": "0.0.0.0/0", "protocol": "tcp"})
         if open_rdp:
-            ingress.append({"from_port": 3389, "to_port": 3389, "cidr": "0.0.0.0/0", "protocol": "tcp"})
+            ingress.append(
+                {"from_port": 3389, "to_port": 3389, "cidr": "0.0.0.0/0", "protocol": "tcp"}
+            )
         if not ingress:
-            ingress.append({"from_port": 443, "to_port": 443, "cidr": "10.0.0.0/16", "protocol": "tcp"})
+            ingress.append(
+                {"from_port": 443, "to_port": 443, "cidr": "10.0.0.0/16", "protocol": "tcp"}
+            )
         sg_id = f"sg-{uuid.uuid4().hex[:12]}"
         out.append({
             "resource_urn": f"arn:aws:ec2:security-group:{sg_id}",
