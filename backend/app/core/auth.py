@@ -7,9 +7,12 @@ behind a key would just make the Policy Simulator and dashboard annoying to
 demo without buying much real protection.
 
 A production deployment with real stakes should replace this with OAuth2 /
-OIDC (the `python-jose` + `passlib` dependencies are already present for
-that migration) — this is intentionally the minimum viable gate, not the
-final word on auth.
+OIDC — this is intentionally the minimum viable gate, not the final word on
+auth. Pick a JWT/OAuth library at that time rather than pre-installing one
+now: `python-jose` was tried here and dropped again (see requirements.txt)
+because it pulls in `ecdsa`, whose Minerva-attack timing vulnerability
+(CVE-2024-23342) the `ecdsa` maintainers have no plans to fix — not worth
+carrying that exposure for a dependency nothing in this codebase calls yet.
 """
 import hmac
 

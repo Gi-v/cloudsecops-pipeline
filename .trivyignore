@@ -1,0 +1,26 @@
+# Vulnerabilities reviewed and accepted for this image, not blanket-suppressed.
+# Each entry below has no vendor-shipped fix available as of the scan date,
+# and none of them apply to how this container actually runs (no privileged
+# mount operations, no systemd-homed, no untrusted-symlink ACL handling).
+# Re-run the scan periodically and drop any line here whose CVE gets a
+# "Fixed Version" — at that point `apt-get upgrade` in the Dockerfile picks
+# it up automatically and it should be fixed, not ignored.
+
+# util-linux (CVE-2026-76642, -78408, -78409, -78410): mount-helper /
+# nsenter / X-mount privilege-escalation issues. This image never invokes
+# mount, nsenter, or any util-linux mount tooling — it's a Python web
+# service, not a container runtime or init system.
+CVE-2026-76642
+CVE-2026-78408
+CVE-2026-78409
+CVE-2026-78410
+
+# libacl1 (CVE-2026-54369): symlink traversal via libacl's ACL handling.
+# Nothing in this codebase manipulates POSIX ACLs or follows
+# attacker-controlled symlinks through libacl.
+CVE-2026-54369
+
+# libsystemd0 (CVE-2026-16742): local privilege escalation via
+# systemd-homed. systemd-homed does not run inside this container (no
+# systemd as PID 1, no homed service).
+CVE-2026-16742
