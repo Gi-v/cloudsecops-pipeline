@@ -113,12 +113,13 @@ intern/
 │   │   └── core/            Settings, logging, request-ID + security-headers middleware,
 │   │                        rate limiting, API-key auth
 │   ├── alembic/             DB migrations, wired to the app's own Settings.database_url
-│   └── tests/               pytest — 111 tests, 92% coverage: 78 need nothing
-│                             external (mocked DB lifespan, pure-logic units,
-│                             mocked httpx for OPA/webhook delivery); 33 exercise
-│                             findings/resources/evidence/scan/metrics/the evaluator
-│                             against a real cloudsecops_test Postgres database (own
-│                             db_client/db_session fixtures — see tests/conftest.py)
+│   └── tests/               pytest — 111 tests (CI gate: --cov-fail-under=78, see
+│                             ci.yml): 78 need nothing external (mocked DB lifespan,
+│                             pure-logic units, mocked httpx for OPA/webhook delivery);
+│                             33 exercise findings/resources/evidence/scan/metrics/the
+│                             evaluator against a real cloudsecops_test Postgres
+│                             database (own db_client/db_session fixtures — see
+│                             tests/conftest.py)
 ├── policies/             Rego policy source, organized by framework
 │   ├── cis/ nist/ iso27001/
 │   └── tests/            opa test / conftest policy unit tests

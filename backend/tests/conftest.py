@@ -35,6 +35,30 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
+# The app's own startup hook (AUTO_SEED_ON_STARTUP, default True in
+# app/core/config.py) fires a real scan against the *production*
+# DATABASE_URL on every lifespan startup. Locally that DB is usually
+# unreachable from a bare `pytest` run, so it just fails silently — but in
+# CI (a real reachable Postgres, and no Kafka at all so the producer/
+# consumer fall back to an in-process queue) it actually runs end to end:
+# the seeded scan's synthetic resources get published, and this same test
+# process's own consumer immediately tries to persist them against a
+# database whose tables were never created, spamming
+# `UndefinedTableError: relation "resources" does not exist` for the rest
+# of the run. An autouse fixture that flips this off was tried first and
+# wasn't reliable — CI's coverage run showed the leak still happening
+# despite it (session-scoped autouse fixtures are only *documented* to run
+# before other fixtures of the same test, not guaranteed independent of
+# module import order). Doing it here instead, as a plain statement at
+# conftest.py's own import time, has no such ordering question: pytest
+# always fully imports conftest.py before collecting or running a single
+# test, so this line has already run by the time anything else in this
+# file — `client` included — gets a chance to import app.main and start
+# its lifespan.
+from app.core.config import get_settings  # noqa: E402
+
+get_settings().auto_seed_on_startup = False
+
 
 @pytest.fixture(scope="session")
 def client():
@@ -76,27 +100,6 @@ _test_engine = create_async_engine(
     poolclass=NullPool,
 )
 TestSessionLocal = async_sessionmaker(bind=_test_engine, expire_on_commit=False)
-
-
-@pytest.fixture(autouse=True, scope="session")
-def _never_auto_seed_during_tests():
-    """The app's own startup hook (AUTO_SEED_ON_STARTUP, default True in
-    app/core/config.py) fires a real scan against the *production*
-    DATABASE_URL on every lifespan startup — harmless when that URL is
-    unreachable, but a real, silent side effect against the dev stack's
-    actual Postgres on any local `pytest` run made while `docker compose
-    up` is also running (exactly the situation this session is in). Test
-    runs should never write to that database, autoseed or not — this
-    disables it for every test in the session regardless of which
-    fixtures a given test happens to use.
-    """
-    from app.core.config import get_settings
-
-    settings = get_settings()
-    orig = settings.auto_seed_on_startup
-    settings.auto_seed_on_startup = False
-    yield
-    settings.auto_seed_on_startup = orig
 
 
 @pytest.fixture(scope="session")

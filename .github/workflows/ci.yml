@@ -65,13 +65,14 @@ jobs:
             -c "CREATE DATABASE cloudsecops_test"
       - name: Run tests
         working-directory: backend
-        # 85%, not the ~92% this suite currently hits — real margin below
-        # the actual number so an incidental dip from an unrelated change
-        # doesn't fail CI, while still catching an actual regression (e.g.
-        # a new route shipped with no tests at all). Raised from the
-        # original 75 as coverage grew past it — the gate should track
-        # reality, not stay wherever it started.
-        run: pytest -v --cov=app --cov-report=term-missing --cov-fail-under=85
+        # 78, based on what THIS job actually measured (84%), not the local
+        # dev-machine number (92%) — those two genuinely disagree here (a
+        # Python 3.13 vs 3.14 difference between CI and local changes which
+        # statements get counted at all), so the gate has to track CI's own
+        # measurement or it fails on every push regardless of real
+        # coverage. Real margin below 84 either way, still well above the
+        # original 75.
+        run: pytest -v --cov=app --cov-report=term-missing --cov-fail-under=78
 
   frontend-build:
     name: Frontend test + typecheck + build

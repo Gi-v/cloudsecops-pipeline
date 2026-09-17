@@ -272,10 +272,13 @@ npm run dev
 ## ✅ Verification
 
 ```bash
-# Backend — 111/111 passing, 92% coverage (78 need nothing; 33 exercise
-# findings/resources/evidence/scan/metrics/the evaluator against a real
-# cloudsecops_test Postgres database — `docker compose up -d postgres`
-# first, then create it once:
+# Backend — 111/111 passing (78 need nothing; 33 exercise findings/
+# resources/evidence/scan/metrics/the evaluator against a real
+# cloudsecops_test Postgres database). Coverage clears CI's 78% gate with
+# real margin either way, though the exact number reads a few points
+# higher locally than in CI (coverage.py counts statements a little
+# differently across Python versions). `docker compose up -d postgres`
+# first, then create the test DB once:
 #   PGPASSWORD=cloudsecops_dev_password psql -h localhost -U cloudsecops \
 #     -d cloudsecops -c "CREATE DATABASE cloudsecops_test"
 cd backend && pytest -q
