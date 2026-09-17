@@ -2,7 +2,7 @@
 
 <img width="100%" src="./.github/assets/banner.svg" alt="CloudSecOps Pipeline — collect, evaluate, evidence, broadcast, alert" />
 
-<a href="https://github.com/Gi-v/final-project/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Gi-v/final-project/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=0f0f1a&color=5b6af0" alt="CI status" /></a>
+<a href="https://github.com/Gi-v/cloudsecops-pipeline/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Gi-v/cloudsecops-pipeline/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=0f0f1a&color=5b6af0" alt="CI status" /></a>
 <img src="https://img.shields.io/badge/backend-41%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="backend tests" />
 <img src="https://img.shields.io/badge/frontend-71%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="frontend tests" />
 <img src="https://img.shields.io/badge/license-MIT-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="MIT license" />
@@ -293,7 +293,7 @@ diagnosed is in the commit history.
 ## 📁 Repository layout
 
 ```
-final-project/
+cloudsecops-pipeline/
 ├── backend/            FastAPI service — collectors, Kafka, policy evaluation, evidence store, REST/WS API
 ├── policies/            Rego policy source (CIS / NIST / ISO 27001) + unit tests
 ├── frontend/            React + TypeScript compliance dashboard
