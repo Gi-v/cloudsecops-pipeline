@@ -189,6 +189,16 @@ async def security_score_trend(
     for correlation_id, severity, total, passing in findings_result.all():
         by_run.setdefault(correlation_id, []).append((severity, total, passing or 0))
 
+    # Distinct resources touched per scan — a separate query because the
+    # findings query above groups by severity too (one resource with a
+    # CRITICAL and a LOW finding would otherwise be counted twice).
+    resource_counts_result = await db.execute(
+        select(Finding.correlation_id, func.count(func.distinct(Finding.resource_id)))
+        .where(Finding.correlation_id.in_(correlation_ids))
+        .group_by(Finding.correlation_id)
+    )
+    resources_by_run = dict(resource_counts_result.all())
+
     points = []
     for run in runs:
         rows = by_run.get(run.correlation_id, [])
@@ -205,6 +215,7 @@ async def security_score_trend(
                 controls_passing=total_passing,
                 controls_total=total_evaluated,
                 critical_findings=critical_open,
+                resources_scanned=resources_by_run.get(run.correlation_id, 0),
             )
         )
     return points

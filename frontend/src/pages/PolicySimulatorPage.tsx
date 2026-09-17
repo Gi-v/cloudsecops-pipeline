@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { ChevronDown, FileSearch, Play, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { endpoints } from "@/api/client";
 import EmptyState from "@/components/EmptyState";
@@ -90,7 +91,7 @@ export default function PolicySimulatorPage() {
     <div>
       <div className="page-header">
         <div className="page-title-row">
-          <span className="page-title-icon">
+          <span className="page-title-icon" style={{ "--page-accent": "var(--warn)" } as CSSProperties}>
             <FileSearch size={18} />
           </span>
           <div>

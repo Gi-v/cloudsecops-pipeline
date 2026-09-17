@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight, ChevronLeft, ChevronRight, ServerCog } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { useSearchParams } from "react-router-dom";
 import { endpoints } from "@/api/client";
 import EmptyState from "@/components/EmptyState";
@@ -72,7 +73,7 @@ export default function ResourcesPage() {
     <div>
       <div className="page-header">
         <div className="page-title-row">
-          <span className="page-title-icon">
+          <span className="page-title-icon" style={{ "--page-accent": "var(--brand-2)" } as CSSProperties}>
             <ServerCog size={18} />
           </span>
           <div>

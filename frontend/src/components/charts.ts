@@ -26,8 +26,9 @@ Chart.register(
 /** Severity is a functional signal, not a brand statement — colors here
  * are pulled from the same danger/warn/medium/success tokens used
  * elsewhere for those exact meanings, not a separate decorative palette.
- * MEDIUM is neutral grey by design (Monochrome Precision spec) rather than
- * a brand hue — there is no brand hue in this theme. */
+ * MEDIUM stays neutral grey rather than a brand hue — brand color is
+ * reserved for the periwinkle/violet accent, never repurposed to mean a
+ * severity. */
 export const SEVERITY_COLORS: Record<string, string> = {
   CRITICAL: "#EF4444",
   HIGH: "#F59E0B",

@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { CheckSquare, ChevronLeft, ChevronRight, Download, ShieldCheck, Square } from "lucide-react";
+import type { CSSProperties } from "react";
 import { api } from "@/api/client";
 import EmptyState from "@/components/EmptyState";
 import ScanButton from "@/components/ScanButton";
@@ -56,7 +57,7 @@ export default function FindingsPage() {
     <div>
       <div className="page-header">
         <div className="page-title-row">
-          <span className="page-title-icon">
+          <span className="page-title-icon" style={{ "--page-accent": "var(--danger)" } as CSSProperties}>
             <ShieldCheck size={18} />
           </span>
           <div>

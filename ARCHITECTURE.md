@@ -72,9 +72,12 @@ architectural decision the ADR panel on the portfolio site documents as ADR-001.
 7. **Trend & risk analytics.** Every scan's findings stay tied to it via `correlation_id`,
    so `GET /api/metrics/trend` replays the same severity-weighted score the dashboard's
    headline number uses, once per historical scan — a compliance-over-time chart computed
-   from data the pipeline was already writing, not a new table. `GET
-   /api/metrics/top-resources` ranks resources by that same weighting applied to their open
-   findings, surfacing which one to fix first instead of just a flat violation count.
+   from data the pipeline was already writing, not a new table. Each trend point also
+   carries a distinct-resource count for that scan (`COUNT(DISTINCT resource_id)` grouped by
+   `correlation_id`), so the dashboard's "Resources Scanned" tile can plot a real sparkline
+   instead of decorative placeholder numbers. `GET /api/metrics/top-resources` ranks
+   resources by that same weighting applied to their open findings, surfacing which one to
+   fix first instead of just a flat violation count.
 
 ## 5. Why These Choices (ADRs)
 
@@ -113,11 +116,15 @@ intern/
 ├── policies/             Rego policy source, organized by framework
 │   ├── cis/ nist/ iso27001/
 │   └── tests/            opa test / conftest policy unit tests
-├── frontend/             React + TypeScript dashboard (Vite), dark glassmorphic UI
+├── frontend/             React + TypeScript dashboard (Vite) — dark UI with gradient/glow
+│                         accents (ambient background, card glow, per-page colors) layered
+│                         over the same severity/compliance color semantics used everywhere
 │   ├── src/
 │   │   ├── components/       Sidebar, CommandPalette, SearchInput, charts, TrendChart, TopRiskResources, skeletons, empty states
 │   │   ├── context/           Shared WebSocket connection (LiveFeedContext)
 │   │   ├── hooks/              useDashboardPolling, useFindingsQuery, useAsync, useAnimatedNumber
+│   │   ├── lib/                 confetti — a tasteful, reduced-motion-aware celebration fired
+│   │   │                        only when a user-triggered scan actually improves the score
 │   │   └── pages/               Dashboard, Findings, Resources, Policy Simulator, Evidence Chain
 │   ├── nginx.conf            SPA static-file config for the production Docker image
 │   └── Dockerfile            multi-stage: dev (vite --host) / build / prod (nginx)

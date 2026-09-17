@@ -70,6 +70,7 @@ export interface ScoreTrendPoint {
   controls_passing: number;
   controls_total: number;
   critical_findings: number;
+  resources_scanned: number;
 }
 
 export interface TopRiskResource {

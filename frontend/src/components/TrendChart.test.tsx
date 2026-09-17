@@ -11,6 +11,7 @@ function point(overrides: Partial<ScoreTrendPoint>): ScoreTrendPoint {
     controls_passing: 10,
     controls_total: 20,
     critical_findings: 2,
+    resources_scanned: 12,
     ...overrides,
   };
 }

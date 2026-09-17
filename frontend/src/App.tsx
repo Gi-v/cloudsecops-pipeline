@@ -4,6 +4,7 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import CommandPalette from "@/components/CommandPalette";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Sidebar from "@/components/Sidebar";
+import Spotlight from "@/components/Spotlight";
 import { LiveFeedProvider } from "@/context/LiveFeedContext";
 import DashboardPage from "@/pages/DashboardPage";
 import EvidencePage from "@/pages/EvidencePage";
@@ -48,6 +49,10 @@ function AnimatedRoutes() {
 export default function App() {
   return (
     <LiveFeedProvider>
+      <div className="aurora-bg" aria-hidden="true">
+        <Spotlight fill="#5b6af0" />
+        <Spotlight fill="#1db954" className="spotlight-2" />
+      </div>
       <div className="app-shell">
         <Sidebar />
         <main className="main-content">

@@ -4,7 +4,7 @@
 
 <a href="https://github.com/Gi-v/cloudsecops-pipeline/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Gi-v/cloudsecops-pipeline/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=0f0f1a&color=5b6af0" alt="CI status" /></a>
 <img src="https://img.shields.io/badge/backend-41%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="backend tests" />
-<img src="https://img.shields.io/badge/frontend-71%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="frontend tests" />
+<img src="https://img.shields.io/badge/frontend-86%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="frontend tests" />
 <img src="https://img.shields.io/badge/license-MIT-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="MIT license" />
 
 <br/>
@@ -53,7 +53,7 @@ replacing a manual, spreadsheet-driven cloud audit with a real-time event pipeli
 <td width="50%">
 
 **Compliance Dashboard**
-Security score, severity breakdown, framework coverage, a score-over-time trend, top-risk resources, and a live WebSocket findings feed — all real data from a real scan.
+Security score (colored by its own compliance band, not a fixed color), a real "N min ago" last-scan time, a real critical-count trend chip, severity breakdown, framework coverage, a score-over-time trend with a real resources-scanned sparkline, top-risk resources, and a live WebSocket findings feed — every number on this page comes from a real scan, including the small ones.
 
 </td>
 <td width="50%">
@@ -276,7 +276,7 @@ npm run dev
 cd backend && pytest -q
 ruff check app && mypy app
 
-# Frontend — 71/71 passing
+# Frontend — 86/86 passing
 cd frontend && npm test
 npx tsc -b --noEmit && npx eslint . && npm run build
 ```

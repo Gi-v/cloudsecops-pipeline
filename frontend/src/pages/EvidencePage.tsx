@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { CheckCircle2, FileSearch, Search, XCircle } from "lucide-react";
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { endpoints } from "@/api/client";
@@ -47,7 +48,7 @@ export default function EvidencePage() {
     <div>
       <div className="page-header">
         <div className="page-title-row">
-          <span className="page-title-icon">
+          <span className="page-title-icon" style={{ "--page-accent": "var(--success)" } as CSSProperties}>
             <FileSearch size={18} />
           </span>
           <div>

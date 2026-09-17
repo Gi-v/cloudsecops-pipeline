@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { AlertOctagon, BarChart3, LayoutDashboard, Server, TrendingUp } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { ChartSkeleton, KpiSkeleton } from "@/components/Skeleton";
 import { complianceColor } from "@/components/charts";
 import ControlsPassingCard from "@/components/ControlsPassingCard";
@@ -15,9 +16,41 @@ import TextGenerateEffect from "@/components/TextGenerateEffect";
 import TopRiskResources from "@/components/TopRiskResources";
 import TrendChart from "@/components/TrendChart";
 import { useDashboardPolling } from "@/hooks/useDashboardPolling";
+import { celebrateScoreImprovement } from "@/lib/confetti";
+
+const SUCCESS_BAND = 80;
 
 export default function DashboardPage() {
   const { metrics, families, trend, topRisk, loading, refresh } = useDashboardPolling();
+
+  // Confetti is gated on both a real improvement AND a scan the user just
+  // triggered themselves (scanJustTriggered) — a background poll that
+  // happens to observe an improvement (someone else's remediation landing)
+  // stays quiet, since celebrating on the DashboardPage's own initiative
+  // while nobody clicked anything would read as random rather than a
+  // response to what the user just did.
+  const prevScoreRef = useRef<number | null>(null);
+  const scanJustTriggered = useRef(false);
+
+  useEffect(() => {
+    if (!metrics) return;
+    const prev = prevScoreRef.current;
+    if (
+      scanJustTriggered.current &&
+      prev !== null &&
+      metrics.security_score > prev &&
+      metrics.security_score >= SUCCESS_BAND
+    ) {
+      celebrateScoreImprovement();
+    }
+    prevScoreRef.current = metrics.security_score;
+    scanJustTriggered.current = false;
+  }, [metrics]);
+
+  function handleScanDone() {
+    scanJustTriggered.current = true;
+    refresh();
+  }
 
   return (
     <div>
@@ -33,7 +66,7 @@ export default function DashboardPage() {
             <p className="page-sub-mono">AWS · GCP · Azure</p>
           </div>
         </div>
-        <ScanButton onDone={refresh} />
+        <ScanButton onDone={handleScanDone} />
       </div>
 
       <div className="kpi-row">
@@ -52,6 +85,8 @@ export default function DashboardPage() {
               controlsTotal={metrics?.controls_total ?? 0}
               criticalFindings={metrics?.critical_findings ?? 0}
               resourcesScanned={metrics?.resources_scanned ?? 0}
+              lastScanAt={metrics?.last_scan_at ?? null}
+              trend={trend}
             />
             <KpiCard
               index={1}
@@ -71,8 +106,8 @@ export default function DashboardPage() {
               label="Resources Scanned"
               value={metrics?.resources_scanned ?? 0}
               icon={Server}
-              color="var(--t2)"
-              sparkline
+              color="var(--brand)"
+              sparklineData={trend.map((t) => t.resources_scanned)}
             />
           </>
         )}

@@ -1,16 +1,16 @@
 /* ── TOKENS ─────────────────────────────────────── */
-/* Monochrome Precision: contrast comes from tone (surface step), weight,
-   and size — never from color, gradient, shadow, or blur. Color is spent
-   only on encoding severity/status (danger/warn/ok/medium), never as a
-   brand or decorative device. --accent/--accent-hover/--accent-muted are
-   kept as token *names* for compatibility with existing component code
-   (MagicCard's cursor-tracking border, focus rings, active-state text) but
-   now resolve to neutral greys, not a brand hue. */
+/* v4 "Vivid Signal" — supersedes the earlier "Monochrome Precision" era.
+   That rule (contrast from tone/weight/size only, color reserved for
+   severity) was a deliberate choice for a reporting-first dashboard; this
+   era makes the opposite deliberate choice for the same reason it once
+   went the other way — a live security console should *feel* alive.
+   Gradient, glow and blur are back as first-class devices: --shadow-accent
+   is a real glow now, --gradient-* tokens exist for hero elements, and
+   MagicCard's cursor glow / the Spotlight aurora (both built, previously
+   kept at zero-opacity by the old rule) are switched back on below.
+   Severity colors still mean exactly what they meant before — this era
+   adds decoration, it doesn't touch the semantic channel. */
 :root {
-  /* v3 "Premium Redesign" — 6-level surface stack, 3-level borders. A
-     single brand accent (periwinkle) exists now, reserved for active-nav
-     and primary-CTA only — everything else still reads through tone,
-     weight, and size, per the original Monochrome Precision rule. */
   --s0: #000000;
   --s1: #070709;
   --s2: #0d0d10;
@@ -42,6 +42,7 @@
   --t4: #22222c;
 
   --brand: #5b6af0;
+  --brand-2: #9b6bf5;
   --accent: var(--brand);
   --accent-hover: #6d7af2;
   --accent-muted: rgba(91, 106, 240, 0.08);
@@ -51,15 +52,28 @@
   --success: #1db954;
   --medium: #525266;
 
-  --shadow: none;
-  --shadow-accent: none;
+  --gradient-brand: linear-gradient(135deg, var(--brand), var(--brand-2));
+  --gradient-success: linear-gradient(135deg, #22d67a, #1db954);
+  --gradient-warn: linear-gradient(135deg, #ffc21f, #e8930a);
+  --gradient-danger: linear-gradient(135deg, #ff6b7a, #e03434);
+  --gradient-mesh: radial-gradient(circle at 15% 20%, rgba(91, 106, 240, 0.22), transparent 45%),
+    radial-gradient(circle at 85% 15%, rgba(155, 107, 245, 0.16), transparent 50%),
+    radial-gradient(circle at 50% 100%, rgba(29, 185, 84, 0.08), transparent 55%);
+
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5);
+  --shadow-accent: 0 0 0 1px rgba(91, 106, 240, 0.4), 0 8px 32px rgba(91, 106, 240, 0.25);
+  --glow-brand: 0 0 24px rgba(91, 106, 240, 0.35);
+  --glow-success: 0 0 24px rgba(29, 185, 84, 0.35);
+  --glow-warn: 0 0 24px rgba(232, 147, 10, 0.3);
+  --glow-danger: 0 0 24px rgba(224, 52, 52, 0.35);
 
   --mono: "DM Mono", "Courier New", monospace;
   --display: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --radius-sm: 5px;
-  --radius: 5px;
-  --radius-lg: 5px;
+  --radius-sm: 7px;
+  --radius: 10px;
+  --radius-lg: 16px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -68,7 +82,15 @@
   --space-6: 32px;
   --space-8: 48px;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* Score-band glow — set to one of these three via inline style wherever a
+   compliance percentage needs to read as "good/watch/bad" at a glance, not
+   just via complianceColor()'s text color. */
+.glow-success { box-shadow: var(--glow-success); }
+.glow-warn { box-shadow: var(--glow-warn); }
+.glow-danger { box-shadow: var(--glow-danger); }
 
 * {
   box-sizing: border-box;
@@ -224,6 +246,13 @@ a {
 .app-shell {
   display: flex;
   min-height: 100vh;
+  /* Establishes its own stacking context above .aurora-bg (a fixed,
+     z-index:0 sibling painted at the body level) — without this, a
+     non-positioned element like .main-content would paint *underneath*
+     a positioned fixed sibling regardless of z-index, per normal CSS
+     paint order, and the aurora would sit on top of the dashboard. */
+  position: relative;
+  z-index: 1;
 }
 
 /* s0 (true black) against s1 (very dark blue-black main content) creates
@@ -287,7 +316,10 @@ a {
   /* Slower (3s vs the connected-badge ring's 2.5s and the critical-count
      dot's 2s) so peripheral vision never sees two ambient pulses land in
      sync — see the motion system's 3-animation ambient budget. */
-  animation: cs-pulse-dot 3s ease-in-out infinite;
+  animation: cs-pulse-dot 3s ease-in-out infinite, cs-pulse-ring 3s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-live-dot.connected { animation: none; }
 }
 
 .sidebar-nav {
@@ -313,10 +345,10 @@ a {
   color: var(--t2);
 }
 .sidebar-link.active {
-  background: var(--s3);
+  background: linear-gradient(90deg, rgba(91, 106, 240, 0.16), transparent);
   color: var(--t1);
   font-weight: 500;
-  box-shadow: inset 2px 0 0 var(--brand);
+  box-shadow: inset 3px 0 0 var(--brand), inset 0 0 20px rgba(91, 106, 240, 0.12);
 }
 .sidebar-link svg {
   flex-shrink: 0;
@@ -391,18 +423,23 @@ a {
   align-items: center;
   gap: 12px;
 }
+/* Per-page identity color, set via --page-accent inline on each page's
+   header (falls back to brand when a page doesn't set one) — a quiet
+   wayfinding cue: Findings reads danger-red, Evidence reads success-green,
+   etc., echoing what that page is actually about. */
 .page-title-icon {
   width: 38px;
   height: 38px;
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--page-accent, var(--brand)) 14%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--page-accent, var(--brand)) 40%, var(--line));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--t2);
+  color: var(--page-accent, var(--brand));
   flex-shrink: 0;
   position: relative;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--page-accent, var(--brand)) 22%, transparent);
 }
 
 .page-title {
@@ -435,6 +472,7 @@ a {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 .card-hover {
@@ -477,7 +515,21 @@ a {
   cursor: not-allowed;
 }
 
-/* ScanButton's 3-state machine. See ScanButton.tsx. */
+/* ScanButton's 3-state machine. See ScanButton.tsx. The idle state is the
+   dashboard's one true primary action — everything else on the page is
+   read-only — so it's the one button that gets a solid gradient fill
+   instead of the outline treatment every other button uses. */
+.btn-scan-idle {
+  background: var(--gradient-brand);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: var(--glow-brand);
+}
+.btn-scan-idle:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 0 32px rgba(91, 106, 240, 0.5);
+  color: #fff;
+}
 .btn-scan-scanning {
   animation: cs-scan-glow 0.65s ease-in-out infinite;
   background: rgba(91, 106, 240, 0.08);
@@ -561,11 +613,34 @@ a {
   position: relative;
   overflow: hidden;
 }
+/* Top accent bar in the card's own semantic color — set via the
+   --kpi-accent custom property (inline, per card). A quiet wayfinding
+   device: glance at the color strip, know what kind of number this is,
+   before reading the label. */
+.kpi-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--kpi-accent, var(--gradient-brand));
+}
 .kpi-card-icon {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  opacity: 0.5;
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* currentColor resolves to this element's own inline `color` (set per
+     card from the same semantic color as the top accent bar), so the icon
+     bubble's tint always matches without a second custom property. */
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent);
 }
 .kpi-label {
   font-size: 11px;
@@ -601,9 +676,13 @@ a {
   font-family: var(--mono);
 }
 .kpi-sparkline {
-  position: absolute;
-  bottom: 18px;
-  right: 20px;
+  display: block;
+  width: 100%;
+  overflow: visible;
+  margin-top: 10px;
+}
+.kpi-sparkline-dot {
+  filter: drop-shadow(0 0 3px currentColor);
 }
 
 /* Security Score card (bespoke — see SecurityScoreCard.tsx) */
@@ -612,14 +691,30 @@ a {
   align-items: center;
   gap: 24px;
 }
-.score-chip {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  font-size: 10px;
-  font-family: var(--mono);
-  color: var(--danger);
+/* In normal flow (not absolute) deliberately — an absolute top-right chip
+   collided with the arc gauge once its text grew a real number
+   ("↑ 220 Critical" is wider than the old fixed "↓ Critical" ever was), so
+   it now lives in .score-label-row next to the label instead, which can
+   never overlap the arc regardless of card width or text length. */
+.score-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
 }
+.score-chip {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--mono);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* Direction is real (comparing this scan's critical count against the
+   previous one, see criticalDelta in SecurityScoreCard.tsx) — more
+   criticals reads as a regression (danger), fewer as progress (success). */
+.score-chip-up { color: var(--danger); }
+.score-chip-down { color: var(--success); }
+.score-chip-flat { color: var(--t3); }
 .score-label {
   font-size: 11px;
   color: var(--t3);
@@ -1311,21 +1406,72 @@ textarea:focus,
   border: 1px solid var(--line);
   overflow: hidden;
   cursor: default;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.2s var(--ease), transform 0.2s var(--ease);
 }
-/* The cursor-tracking glow is a decorative device the monochrome spec
-   rules out ("if any animation exists for its own sake, remove it") — kept
-   at near-zero opacity rather than deleted so MagicCard's pointer tracking
-   doesn't need touching elsewhere. */
+.magic-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+/* Cursor-tracking glow, switched back on for the v4 "Vivid Signal" era —
+   see the TOKENS comment. MagicCard.tsx already computes glowBackground
+   from live pointer position; this just lets it render instead of hiding
+   it at display:none. */
 .magic-card-glow {
-  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.9;
+  mix-blend-mode: screen;
 }
 .magic-card-content {
   position: relative;
   z-index: 2;
 }
 
-/* Spotlight/aurora decoration removed — Monochrome Precision has no
-   ambient color wash. */
+/* ── AMBIENT BACKGROUND (Spotlight aurora) ──────── */
+/* Two/three heavily-blurred color blobs fixed behind the whole app shell —
+   pure atmosphere, aria-hidden, pointer-events none. Frozen (not just
+   slowed) under reduced-motion since it never conveys information. */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aurora-bg .spotlight-svg {
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  width: 140%;
+  max-width: 1800px;
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: cs-aurora-in 1.8s var(--ease) forwards;
+}
+.aurora-bg .spotlight-svg.spotlight-2 {
+  top: auto;
+  bottom: -25%;
+  left: 10%;
+  width: 90%;
+  transform: none;
+  animation-delay: 0.3s;
+}
+@keyframes cs-aurora-in {
+  from { opacity: 0; transform: translateX(-50%) scale(0.9); }
+  to   { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+.aurora-bg .spotlight-2 {
+  animation-name: cs-aurora-in-2;
+}
+@keyframes cs-aurora-in-2 {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 0.8; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora-bg .spotlight-svg { animation: none; opacity: 1; }
+  .aurora-bg .spotlight-2 { opacity: 0.8; }
+}
 
 /* ── BORDER BEAM ────────────────────────────────── */
 .border-beam-mask {
@@ -1363,6 +1509,7 @@ textarea:focus,
   border-radius: var(--radius);
   z-index: 1000;
   overflow: hidden;
+  box-shadow: var(--shadow-accent);
 }
 
 .cmdk-input-row {
@@ -1407,8 +1554,12 @@ textarea:focus,
   color: var(--t2);
 }
 .cmdk-item.active {
-  background: var(--surface-active);
+  background: linear-gradient(90deg, rgba(91, 106, 240, 0.16), var(--surface-active));
   color: var(--t1);
+  box-shadow: inset 2px 0 0 var(--brand);
+}
+.cmdk-item.active svg {
+  color: var(--brand);
 }
 .cmdk-item svg {
   flex-shrink: 0;

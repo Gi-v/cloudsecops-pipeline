@@ -158,6 +158,7 @@ class ScoreTrendPoint(BaseModel):
     controls_passing: int
     controls_total: int
     critical_findings: int
+    resources_scanned: int
 
 
 class TopRiskResource(BaseModel):

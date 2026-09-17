@@ -24,7 +24,7 @@ const METRICS = {
   framework_coverage: {},
 };
 const FAMILIES = [{ family: "IAM", control_count: 5, passing: 4, percent: 80 }];
-const TREND = [{ correlation_id: "a", completed_at: "2026-01-01T00:00:00Z", security_score: 70, controls_passing: 10, controls_total: 20, critical_findings: 2 }];
+const TREND = [{ correlation_id: "a", completed_at: "2026-01-01T00:00:00Z", security_score: 70, controls_passing: 10, controls_total: 20, critical_findings: 2, resources_scanned: 40 }];
 const TOP_RISK = [{ resource_id: "r1", resource_urn: "arn:aws:s3:::demo", provider: "AWS", resource_type: "aws_s3_bucket", open_findings: 3, risk_score: 15, worst_severity: "CRITICAL" }];
 
 function mockAllEndpoints() {
