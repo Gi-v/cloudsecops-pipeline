@@ -112,7 +112,11 @@ intern/
 │   │   ├── websocket/       Live findings feed (WS)
 │   │   └── core/            Settings, logging, request-ID middleware, rate limiting, API-key auth
 │   ├── alembic/             DB migrations, wired to the app's own Settings.database_url
-│   └── tests/               pytest — 41 tests, all runnable with zero external services
+│   └── tests/               pytest — 69 tests: 41 need nothing external (mocked DB
+│                             lifespan, pure-logic units); 28 exercise findings/
+│                             resources/evidence/scan/metrics against a real
+│                             cloudsecops_test Postgres database (own db_client/
+│                             db_session fixtures — see tests/conftest.py)
 ├── policies/             Rego policy source, organized by framework
 │   ├── cis/ nist/ iso27001/
 │   └── tests/            opa test / conftest policy unit tests

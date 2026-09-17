@@ -25,6 +25,27 @@ jobs:
   backend-tests:
     name: Backend tests (pytest)
     runs-on: ubuntu-latest
+    services:
+      # Backs tests/conftest.py's db_client/db_session fixtures (findings,
+      # resources, evidence, scan, and metrics routes) — a plain container
+      # rather than a health-gated wait, since asyncpg's own connection
+      # retry inside the test fixtures tolerates the extra second or two
+      # Postgres needs to accept connections after the container starts.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: cloudsecops
+          POSTGRES_USER: cloudsecops
+          POSTGRES_PASSWORD: cloudsecops_dev_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://cloudsecops:cloudsecops_dev_password@localhost:5432/cloudsecops_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,9 +59,17 @@ jobs:
       - name: Lint
         working-directory: backend
         run: ruff check app
+      - name: Create test database
+        run: |
+          PGPASSWORD=cloudsecops_dev_password psql -h localhost -U cloudsecops -d cloudsecops \
+            -c "CREATE DATABASE cloudsecops_test"
       - name: Run tests
         working-directory: backend
-        run: pytest -v --cov=app --cov-report=term-missing
+        # 75%, not the ~83% this suite currently hits — real margin below
+        # the actual number so an incidental dip from an unrelated change
+        # doesn't fail CI, while still catching an actual regression (e.g.
+        # a new route shipped with no tests at all).
+        run: pytest -v --cov=app --cov-report=term-missing --cov-fail-under=75
 
   frontend-build:
     name: Frontend test + typecheck + build

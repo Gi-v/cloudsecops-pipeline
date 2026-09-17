@@ -3,7 +3,7 @@
 <img width="100%" src="./.github/assets/banner.svg" alt="CloudSecOps Pipeline — collect, evaluate, evidence, broadcast, alert" />
 
 <a href="https://github.com/Gi-v/cloudsecops-pipeline/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Gi-v/cloudsecops-pipeline/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=0f0f1a&color=5b6af0" alt="CI status" /></a>
-<img src="https://img.shields.io/badge/backend-41%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="backend tests" />
+<img src="https://img.shields.io/badge/backend-69%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="backend tests" />
 <img src="https://img.shields.io/badge/frontend-86%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="frontend tests" />
 <img src="https://img.shields.io/badge/license-MIT-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="MIT license" />
 
@@ -272,7 +272,11 @@ npm run dev
 ## ✅ Verification
 
 ```bash
-# Backend — 41/41 passing
+# Backend — 69/69 passing (41 need nothing; 28 exercise findings/resources/
+# evidence/scan/metrics against a real cloudsecops_test Postgres database —
+# `docker compose up -d postgres` first, then create it once:
+#   PGPASSWORD=cloudsecops_dev_password psql -h localhost -U cloudsecops \
+#     -d cloudsecops -c "CREATE DATABASE cloudsecops_test"
 cd backend && pytest -q
 ruff check app && mypy app
 
