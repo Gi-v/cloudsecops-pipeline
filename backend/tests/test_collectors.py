@@ -7,6 +7,7 @@ import pytest
 from app.collectors.aws_collector import AWSCollector
 from app.collectors.azure_collector import AzureCollector
 from app.collectors.gcp_collector import GCPCollector
+from app.core.config import get_settings
 
 REQUIRED_KEYS = {"resource_urn", "provider", "resource_type", "region", "account_id", "config"}
 
@@ -47,3 +48,21 @@ async def test_all_collectors_run_concurrently_without_error():
         AzureCollector().collect(),
     )
     assert all(len(r) > 0 for r in results)
+
+
+@pytest.mark.asyncio
+async def test_live_mode_without_boto3_raises_a_helpful_error():
+    """boto3 isn't a base dependency (see pyproject.toml's live-collectors
+    extra) and isn't installed in this test environment — exactly the
+    situation COLLECTOR_MODE=live hits on a fresh `pip install -r
+    requirements.txt` with no extras. Should fail with a clear, actionable
+    message telling the caller how to fix it, not a raw ImportError
+    traceback three frames from anything meaningful."""
+    settings = get_settings()
+    orig_mode = settings.collector_mode
+    settings.collector_mode = "live"
+    try:
+        with pytest.raises(RuntimeError, match="live-collectors"):
+            await AWSCollector().collect()
+    finally:
+        settings.collector_mode = orig_mode
