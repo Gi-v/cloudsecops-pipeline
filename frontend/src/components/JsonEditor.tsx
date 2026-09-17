@@ -78,6 +78,7 @@ export default function JsonEditor({
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
+          aria-label="Resource JSON to evaluate"
         />
       </div>
     </div>

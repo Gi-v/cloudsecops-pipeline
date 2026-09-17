@@ -102,6 +102,21 @@ body,
   height: 100%;
 }
 
+/* Keyboard-only focus ring, site-wide — this app styles every interactive
+   element itself (buttons, nav links, filter chips, table rows, inputs
+   with `outline: none` set inline for the caret-only look), which means
+   none of them get a browser default focus indicator either. Without
+   this, a keyboard user tabbing through has no visible indication of
+   where they are at all. `:focus-visible` (not `:focus`) so it only
+   appears for keyboard navigation, not every mouse click; `box-shadow`
+   rather than `outline` so it isn't silently cancelled by an inline
+   `outline: none` the way an actual outline would be. */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--brand);
+  border-radius: 3px;
+}
+
 body {
   margin: 0;
   background: var(--bg);

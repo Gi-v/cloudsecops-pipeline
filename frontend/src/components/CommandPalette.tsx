@@ -167,6 +167,9 @@ export default function CommandPalette() {
           />
           <motion.div
             className="cmdk-box"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command palette"
             initial={{ opacity: 0, y: -12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.18 }}
@@ -176,6 +179,7 @@ export default function CommandPalette() {
               <input
                 autoFocus
                 placeholder="Jump to a page, run a command, or search findings/resources…"
+                aria-label="Jump to a page, run a command, or search findings/resources"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleListKeyDown}

@@ -376,6 +376,7 @@ export default function PolicySimulatorPage() {
               value={catalogSearch}
               onChange={(e) => setCatalogSearch(e.target.value)}
               placeholder="Filter controls…"
+              aria-label="Filter controls"
               style={{
                 width: "100%",
                 height: 28,

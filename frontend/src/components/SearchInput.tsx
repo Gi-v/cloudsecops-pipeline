@@ -40,6 +40,7 @@ export default function SearchInput({
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder}
+        aria-label={placeholder}
         style={{
           flex: 1,
           background: "none",

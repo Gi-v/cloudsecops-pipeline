@@ -67,6 +67,7 @@ export default function EvidencePage() {
           <input
             className="code-input"
             placeholder="Resource URN, e.g. arn:aws:s3:::prod-data-lake"
+            aria-label="Resource URN"
             value={urn}
             onChange={(e) => setUrn(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && lookup()}

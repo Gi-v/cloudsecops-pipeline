@@ -236,7 +236,12 @@ export default function FindingsPage() {
 
       {total > PAGE_SIZE && (
         <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 16, alignItems: "center" }}>
-          <button className="icon-btn" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
+          <button
+            className="icon-btn"
+            disabled={page === 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            aria-label="Previous page"
+          >
             <ChevronLeft size={15} />
           </button>
           <span style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--mono)" }}>
@@ -246,6 +251,7 @@ export default function FindingsPage() {
             className="icon-btn"
             disabled={(page + 1) * PAGE_SIZE >= total}
             onClick={() => setPage((p) => p + 1)}
+            aria-label="Next page"
           >
             <ChevronRight size={15} />
           </button>
