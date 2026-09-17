@@ -1,4 +1,6 @@
 import { motion } from "framer-motion";
+import { Suspense, lazy } from "react";
+import { RefreshCw } from "lucide-react";
 import { Toaster } from "sonner";
 import { Route, Routes, useLocation } from "react-router-dom";
 import CommandPalette from "@/components/CommandPalette";
@@ -6,11 +8,28 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import Sidebar from "@/components/Sidebar";
 import Spotlight from "@/components/Spotlight";
 import { LiveFeedProvider } from "@/context/LiveFeedContext";
-import DashboardPage from "@/pages/DashboardPage";
-import EvidencePage from "@/pages/EvidencePage";
-import FindingsPage from "@/pages/FindingsPage";
-import PolicySimulatorPage from "@/pages/PolicySimulatorPage";
-import ResourcesPage from "@/pages/ResourcesPage";
+
+// Route-level code splitting — only DashboardPage pulls in Chart.js
+// (~66KB gzipped, see vendor-charts in the build output), but every page
+// used to ship it anyway since react-router doesn't care which Route
+// actually renders. A visit straight to /findings or /policies (a
+// bookmark, a refresh, a shared link) now skips that download entirely,
+// and the initial bundle for the "/" landing case shrinks too, since the
+// other four pages' code moves into their own chunks instead of riding
+// along in the main one.
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const EvidencePage = lazy(() => import("@/pages/EvidencePage"));
+const FindingsPage = lazy(() => import("@/pages/FindingsPage"));
+const PolicySimulatorPage = lazy(() => import("@/pages/PolicySimulatorPage"));
+const ResourcesPage = lazy(() => import("@/pages/ResourcesPage"));
+
+function RouteLoadingFallback() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "40vh", color: "var(--t3)" }}>
+      <RefreshCw size={18} className="spin" />
+    </div>
+  );
+}
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -35,13 +54,15 @@ function AnimatedRoutes() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.14, ease: "easeOut" }}
     >
-      <Routes location={location}>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/findings" element={<FindingsPage />} />
-        <Route path="/resources" element={<ResourcesPage />} />
-        <Route path="/policies" element={<PolicySimulatorPage />} />
-        <Route path="/evidence" element={<EvidencePage />} />
-      </Routes>
+      <Suspense fallback={<RouteLoadingFallback />}>
+        <Routes location={location}>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/findings" element={<FindingsPage />} />
+          <Route path="/resources" element={<ResourcesPage />} />
+          <Route path="/policies" element={<PolicySimulatorPage />} />
+          <Route path="/evidence" element={<EvidencePage />} />
+        </Routes>
+      </Suspense>
     </motion.div>
   );
 }
