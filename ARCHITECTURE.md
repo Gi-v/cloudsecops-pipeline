@@ -110,13 +110,14 @@ intern/
 │   │   ├── db/              SQLAlchemy models, async session, init SQL
 │   │   ├── schemas/         Pydantic request/response models
 │   │   ├── websocket/       Live findings feed (WS)
-│   │   └── core/            Settings, logging, request-ID middleware, rate limiting, API-key auth
+│   │   └── core/            Settings, logging, request-ID + security-headers middleware,
+│   │                        rate limiting, API-key auth
 │   ├── alembic/             DB migrations, wired to the app's own Settings.database_url
-│   └── tests/               pytest — 69 tests: 41 need nothing external (mocked DB
-│                             lifespan, pure-logic units); 28 exercise findings/
-│                             resources/evidence/scan/metrics against a real
-│                             cloudsecops_test Postgres database (own db_client/
-│                             db_session fixtures — see tests/conftest.py)
+│   └── tests/               pytest — 81 tests: 48 need nothing external (mocked DB
+│                             lifespan, pure-logic units); 33 exercise findings/
+│                             resources/evidence/scan/metrics/the evaluator against
+│                             a real cloudsecops_test Postgres database (own
+│                             db_client/db_session fixtures — see tests/conftest.py)
 ├── policies/             Rego policy source, organized by framework
 │   ├── cis/ nist/ iso27001/
 │   └── tests/            opa test / conftest policy unit tests
