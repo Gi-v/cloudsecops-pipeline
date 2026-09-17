@@ -38,7 +38,13 @@
 
   --t1: #ededf0;
   --t2: #7a7a8c;
-  --t3: #3e3e50;
+  /* Was #3e3e50 — 1.9:1 against --bg/--surface, well under even the 3:1
+     WCAG AA floor for large text/UI components, on a token used for real
+     content (KPI card labels, the security-score label, table timestamps),
+     not just decorative dividers. #6a6a80 clears 3:1 with margin (~3.5-3.8:1
+     across --bg/--surface/--s3) while staying visibly more muted than --t2,
+     so the tone hierarchy (t1 > t2 > t3) still reads correctly. */
+  --t3: #6a6a80;
   --t4: #22222c;
 
   --brand: #5b6af0;
