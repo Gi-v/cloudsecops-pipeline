@@ -19,7 +19,7 @@ from app.alerting.notifier import deliver_alert, extract_critical_alerts
 from app.api.routes import evidence, findings, health, metrics, policies, resources, scan
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
-from app.core.middleware import RequestContextMiddleware
+from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from app.core.rate_limit import limiter
 from app.db.database import AsyncSessionLocal, init_models
 from app.kafka.consumer import KafkaConsumerClient
@@ -147,6 +147,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 app.add_middleware(RequestContextMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

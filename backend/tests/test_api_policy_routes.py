@@ -81,6 +81,14 @@ def test_request_id_is_echoed_back_when_supplied(client):
     assert resp.headers["x-request-id"] == "my-trace-id"
 
 
+def test_security_headers_present_on_every_response(client):
+    resp = client.get("/healthz")
+    assert resp.headers["x-content-type-options"] == "nosniff"
+    assert resp.headers["x-frame-options"] == "DENY"
+    assert resp.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    assert "camera=()" in resp.headers["permissions-policy"]
+
+
 def test_bulk_status_update_rejects_empty_list(client):
     resp = client.patch("/api/findings/bulk-status", json={"finding_ids": [], "status": "RESOLVED"})
     assert resp.status_code == 400
