@@ -6,13 +6,21 @@ Starlette's TestClient, but patches `init_models` to a no-op so the app's
 lifespan doesn't require a live Postgres connection just to exercise routes
 that never touch the database (health, policy catalog, ad-hoc evaluation).
 
-Scoped to the module (not function) because several app-level singletons —
-the Kafka producer's fallback `asyncio.Queue`, in particular — are bound to
-whichever event loop first creates them. A function-scoped client spins up a
-fresh event loop per test while those singletons persist across tests,
-producing spurious "bound to a different event loop" errors that are a test
-artifact, not a real bug (a real deployment has exactly one event loop for
-the app's lifetime).
+Scoped to the *session* (not module, not function) because several
+app-level singletons — the Kafka producer's fallback `asyncio.Queue` in
+particular — are bound to whichever event loop first creates them, and
+`TestClient.__enter__` runs the app's lifespan inside its own portal
+thread/loop, fresh every time it's entered. A module-scoped client looked
+sufficient while only one test module used it (module- and session-scope
+are identical with a single user) but broke the moment a second module
+started using it too: each module got its own lifespan cycle — its own
+portal loop — against the *same* producer_client singleton, so the second
+module's Kafka consumer tried to read a fallback queue still bound to the
+first module's already-closed loop ("Queue ... is bound to a different
+event loop", surfacing at that first module's teardown). Session scope
+means exactly one lifespan cycle, one portal loop, for the whole run —
+which is also just correct: "a real deployment has exactly one event loop
+for the app's lifetime" was already this file's own stated ideal.
 
 `db_client`/`db_session` below add a *real* Postgres-backed path for routes
 that do touch the database (findings/resources/evidence/scan/metrics) — see
@@ -28,7 +36,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def client():
     with patch("app.db.database.init_models", new=AsyncMock()):
         from app.main import app
@@ -124,8 +132,9 @@ async def db_session(_db_schema):
 
 @pytest.fixture
 def db_client(client, _db_schema):
-    """The same module-scoped `client`/app/lifespan as above (proven not to
-    hit the "bound to a different event loop" issue), with `get_db`
+    """The same session-scoped `client`/app/lifespan as above (exactly one
+    per test run, so it can't hit the "bound to a different event loop"
+    issue its own docstring documents), with `get_db`
     overridden per-test to hand out sessions against the test database
     instead of the production one — a fresh session per request, exactly
     like `app.db.database.get_db` does for real, just pointed elsewhere.
