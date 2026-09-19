@@ -28,7 +28,9 @@ async def list_users(db: AsyncSession) -> list[User]:
     return list(result.scalars().all())
 
 
-async def create_user(db: AsyncSession, username: str, email: str, password: str, role: str) -> User:
+async def create_user(
+    db: AsyncSession, username: str, email: str, password: str, role: str
+) -> User:
     existing = await get_user_by_username(db, username)
     if existing is not None:
         raise ValueError(f"Username '{username}' is already taken.")
