@@ -45,15 +45,32 @@ spec:
               drop: ["ALL"]
           ports:
             - containerPort: 8181
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "300m", memory: "256Mi" }
           volumeMounts:
             - name: policies
               mountPath: /policies
               readOnly: true
-          # No probes here on purpose, mirroring docker-compose.yml's opa
-          # service: the official image has no shell/wget/curl inside it for
-          # a probe to exec, and app/policy_engine/opa_client.py already
-          # tolerates OPA being briefly unreachable (per-request retry +
-          # local Python fallback evaluator).
+          # httpGet probes don't need a shell inside the container at all —
+          # the kubelet makes the HTTP request directly against the pod's
+          # IP:port, unlike an `exec` probe (which the official OPA image
+          # can't run anything for — no shell/wget/curl, the reason
+          # docker-compose.yml's opa service also has no healthcheck).
+          # OPA's own built-in /health endpoint is exactly what that
+          # docker-compose healthcheck couldn't reach for.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 10
+            periodSeconds: 15
       volumes:
         - name: policies
           configMap:

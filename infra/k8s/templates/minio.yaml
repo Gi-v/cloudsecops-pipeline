@@ -41,6 +41,9 @@ spec:
           ports:
             - containerPort: 9000
             - containerPort: 9001
+          resources:
+            requests: { cpu: "200m", memory: "256Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
           env:
             - name: MINIO_ROOT_USER
               value: "cloudsecops"

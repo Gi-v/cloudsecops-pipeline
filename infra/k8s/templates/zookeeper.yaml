@@ -37,6 +37,9 @@ spec:
               drop: ["ALL"]
           ports:
             - containerPort: 2181
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "300m", memory: "512Mi" }
           env:
             - name: ZOOKEEPER_CLIENT_PORT
               value: "2181"

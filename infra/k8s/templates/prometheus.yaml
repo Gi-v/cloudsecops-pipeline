@@ -57,6 +57,9 @@ spec:
               drop: ["ALL"]
           ports:
             - containerPort: 9090
+          resources:
+            requests: { cpu: "200m", memory: "256Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
           volumeMounts:
             - name: config
               mountPath: /etc/prometheus

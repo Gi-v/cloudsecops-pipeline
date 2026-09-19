@@ -38,6 +38,9 @@ spec:
               drop: ["ALL"]
           ports:
             - containerPort: 6379
+          resources:
+            requests: { cpu: "100m", memory: "64Mi" }
+            limits: { cpu: "300m", memory: "128Mi" }
           volumeMounts:
             - name: tmp
               mountPath: /tmp
