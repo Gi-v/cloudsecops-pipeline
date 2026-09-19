@@ -10,6 +10,57 @@ FindingStatus = Literal["OPEN", "IN_REVIEW", "ASSIGNED", "RESOLVED", "SUPPRESSED
 CloudProvider = Literal["AWS", "GCP", "AZURE"]
 
 
+# ── Errors ───────────────────────────────────────────
+# Every error response across the API shares this shape — {"error": {...}}
+# — instead of FastAPI's default bare {"detail": ...}, so frontend error
+# handling and API consumers only ever need to look in one place.
+class ErrorDetail(BaseModel):
+    code: str
+    message: str
+    request_id: str | None = None
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorDetail
+
+
+# ── Auth ─────────────────────────────────────────────
+UserRole = Literal["viewer", "admin"]
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: UserRole
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    username: str
+    email: str
+    role: UserRole
+    is_active: bool
+    created_at: datetime
+
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+    role: UserRole = "viewer"
+
+
+class UserRoleUpdate(BaseModel):
+    role: UserRole
+
+
 # ── Resource ─────────────────────────────────────────
 class ResourceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -58,6 +58,11 @@ from sqlalchemy.pool import NullPool
 from app.core.config import get_settings  # noqa: E402
 
 get_settings().auto_seed_on_startup = False
+# Same ordering hazard, same fix: seed_admin_if_missing (app/core/security.py)
+# runs at the same lifespan point and would otherwise create a real `users`
+# row against a database whose tables — in the no-DB `client` fixture's case
+# — don't exist at all yet.
+get_settings().auto_seed_admin_on_startup = False
 
 
 @pytest.fixture(scope="session")
@@ -127,7 +132,7 @@ async def db_session(_db_schema):
     async with _test_engine.begin() as conn:
         await conn.execute(
             text(
-                "TRUNCATE resources, findings, evidence_records, scan_runs "
+                "TRUNCATE resources, findings, evidence_records, scan_runs, users "
                 "RESTART IDENTITY CASCADE"
             )
         )
@@ -155,3 +160,53 @@ def db_client(client, _db_schema):
     app.dependency_overrides[get_db] = _override_get_db
     yield client
     app.dependency_overrides.pop(get_db, None)
+
+
+# ── Auth fixtures ────────────────────────────────────────────────────────
+async def _make_user_headers(db_session, role: str) -> dict:
+    """A real user row in the test database plus a matching JWT — used by
+    every test exercising an admin-only (require_role) endpoint through
+    db_client, so the request goes through the exact same JWT-decode +
+    DB-role-lookup path a real login would (see app/core/security.py)."""
+    import uuid as _uuid
+
+    from app.core.security import create_access_token, hash_password
+    from app.db.models import User, UserRole
+
+    username = f"{role}-{_uuid.uuid4().hex[:8]}"
+    user = User(
+        username=username,
+        email=f"{username}@test.local",
+        hashed_password=hash_password("test-password-123"),
+        role=UserRole(role),
+    )
+    db_session.add(user)
+    await db_session.commit()
+    token = create_access_token(username, role)
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+async def admin_headers(db_session) -> dict:
+    return await _make_user_headers(db_session, "admin")
+
+
+@pytest.fixture
+async def viewer_headers(db_session) -> dict:
+    return await _make_user_headers(db_session, "viewer")
+
+
+@pytest.fixture
+def api_key_headers():
+    """Enables the legacy X-API-Key path for the duration of one test,
+    without needing a real database — get_current_principal's API-key
+    branch never touches `db` (see app/core/security.py), so this is safe
+    to use with the no-DB `client` fixture. Restores settings afterward."""
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    orig_enabled, orig_key = settings.api_auth_enabled, settings.api_key
+    settings.api_auth_enabled = True
+    settings.api_key = "test-api-key"
+    yield {"X-API-Key": "test-api-key"}
+    settings.api_auth_enabled, settings.api_key = orig_enabled, orig_key

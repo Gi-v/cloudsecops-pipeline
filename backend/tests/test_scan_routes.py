@@ -31,8 +31,8 @@ def _reset_scan_rate_limit():
     limiter.reset()
 
 
-async def test_trigger_scan_persists_a_scan_run(db_client):
-    resp = db_client.post("/api/scan", json={"provider": "AWS"})
+async def test_trigger_scan_persists_a_scan_run(db_client, admin_headers):
+    resp = db_client.post("/api/v1/scan", json={"provider": "AWS"}, headers=admin_headers)
     assert resp.status_code == 200
     body = resp.json()
     assert body["provider"] == "AWS"
@@ -41,27 +41,31 @@ async def test_trigger_scan_persists_a_scan_run(db_client):
     assert body["completed_at"] is not None
 
 
-async def test_get_scan_run_by_correlation_id(db_client):
-    triggered = db_client.post("/api/scan", json={"provider": "AWS"}).json()
+async def test_get_scan_run_by_correlation_id(db_client, admin_headers):
+    triggered = db_client.post(
+        "/api/v1/scan", json={"provider": "AWS"}, headers=admin_headers
+    ).json()
 
-    resp = db_client.get(f"/api/scan/{triggered['correlation_id']}")
+    resp = db_client.get(f"/api/v1/scan/{triggered['correlation_id']}")
     assert resp.status_code == 200
     assert resp.json()["id"] == triggered["id"]
 
 
 async def test_get_scan_run_404_for_unknown_correlation_id(db_client):
-    resp = db_client.get("/api/scan/does-not-exist")
+    resp = db_client.get("/api/v1/scan/does-not-exist")
     assert resp.status_code == 404
 
 
-async def test_list_scan_runs_orders_most_recent_first(db_session, db_client):
+async def test_list_scan_runs_orders_most_recent_first(db_session, db_client, admin_headers):
     first = ScanRun(correlation_id="corr-older", status="PUBLISHED", resources_scanned=1)
     db_session.add(first)
     await db_session.commit()
 
-    triggered = db_client.post("/api/scan", json={"provider": "AWS"}).json()
+    triggered = db_client.post(
+        "/api/v1/scan", json={"provider": "AWS"}, headers=admin_headers
+    ).json()
 
-    resp = db_client.get("/api/scan", params={"limit": 5})
+    resp = db_client.get("/api/v1/scan", params={"limit": 5})
     assert resp.status_code == 200
     correlation_ids = [r["correlation_id"] for r in resp.json()]
     assert correlation_ids[0] == triggered["correlation_id"]

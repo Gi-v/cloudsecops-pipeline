@@ -67,7 +67,7 @@ async def test_dashboard_metrics_reflects_real_findings(db_session, db_client):
     await _seed_finding(db_session, resource, corr, severity=Severity.LOW, passed=True)
     await db_session.commit()
 
-    resp = db_client.get("/api/metrics/dashboard")
+    resp = db_client.get("/api/v1/metrics/dashboard")
     assert resp.status_code == 200
     body = resp.json()
     assert body["critical_findings"] == 1
@@ -93,7 +93,7 @@ async def test_cis_family_compliance_groups_by_family_prefix(db_session, db_clie
     )
     await db_session.commit()
 
-    resp = db_client.get("/api/metrics/cis-families")
+    resp = db_client.get("/api/v1/metrics/cis-families")
     assert resp.status_code == 200
     body = resp.json()
     assert len(body) == 1
@@ -122,7 +122,7 @@ async def test_score_trend_orders_oldest_first_with_real_resource_counts(db_sess
     )
     await db_session.commit()
 
-    resp = db_client.get("/api/metrics/trend")
+    resp = db_client.get("/api/v1/metrics/trend")
     assert resp.status_code == 200
     body = resp.json()
     assert len(body) == 2
@@ -148,7 +148,7 @@ async def test_top_risk_resources_ranks_by_severity_weighted_score(db_session, d
     )
     await db_session.commit()
 
-    resp = db_client.get("/api/metrics/top-resources")
+    resp = db_client.get("/api/v1/metrics/top-resources")
     assert resp.status_code == 200
     body = resp.json()
     # One CRITICAL should outrank three LOWs despite having fewer open
@@ -158,3 +158,44 @@ async def test_top_risk_resources_ranks_by_severity_weighted_score(db_session, d
     assert body[0]["worst_severity"] == "CRITICAL"
     assert body[0]["open_findings"] == 1
     assert body[1]["open_findings"] == 3
+
+
+async def test_trend_by_provider_splits_scores_per_provider(db_session, db_client):
+    aws_resource = await _seed_resource(db_session, provider=CloudProvider.AWS)
+    gcp_resource = await _seed_resource(db_session, provider=CloudProvider.GCP)
+    now = datetime.now(UTC)
+
+    aws_corr, gcp_corr = uuid.uuid4().hex, uuid.uuid4().hex
+    aws_run = await _seed_scan_run(db_session, aws_corr, now - timedelta(hours=1))
+    aws_run.provider = CloudProvider.AWS
+    gcp_run = await _seed_scan_run(db_session, gcp_corr, now)
+    gcp_run.provider = CloudProvider.GCP
+
+    await _seed_finding(db_session, aws_resource, aws_corr, passed=True)
+    await _seed_finding(
+        db_session, gcp_resource, gcp_corr, severity=Severity.CRITICAL, passed=False
+    )
+    await db_session.commit()
+
+    resp = db_client.get("/api/v1/metrics/trend-by-provider")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 2
+    by_provider = {p["provider"]: p for p in body}
+    assert by_provider["AWS"]["security_score"] == 100
+    assert by_provider["GCP"]["security_score"] < 100
+
+
+async def test_findings_timeline_buckets_by_day_and_severity(db_session, db_client):
+    resource = await _seed_resource(db_session)
+    corr = uuid.uuid4().hex
+    await _seed_finding(db_session, resource, corr, severity=Severity.CRITICAL, passed=False)
+    await _seed_finding(db_session, resource, corr, severity=Severity.LOW, passed=False)
+    await db_session.commit()
+
+    resp = db_client.get("/api/v1/metrics/findings-timeline")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["severities"]["CRITICAL"] == 1
+    assert body[0]["severities"]["LOW"] == 1

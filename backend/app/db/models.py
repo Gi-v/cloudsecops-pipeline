@@ -42,6 +42,11 @@ class CloudProvider(StrEnum):
     AZURE = "AZURE"
 
 
+class UserRole(StrEnum):
+    VIEWER = "viewer"
+    ADMIN = "admin"
+
+
 class Resource(Base):
     """A single cloud resource discovered by a collector."""
 
@@ -139,3 +144,21 @@ class ScanRun(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="RUNNING")
+
+
+class User(Base):
+    """A human account for JWT-based login. Coexists with the separate
+    X-API-Key service-account gate (app/core/auth.py) rather than replacing
+    it — see app/core/security.py's module docstring."""
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(256), unique=True)
+    hashed_password: Mapped[str] = mapped_column(String(256))
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.VIEWER)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

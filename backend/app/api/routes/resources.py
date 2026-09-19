@@ -2,14 +2,14 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
-from app.db.models import CloudProvider, Resource
+from app.db.models import CloudProvider
 from app.schemas.schemas import ResourceOut
+from app.services import resources_service
 
-router = APIRouter(prefix="/api/resources", tags=["resources"])
+router = APIRouter(prefix="/resources", tags=["resources"])
 
 
 @router.get("", response_model=list[ResourceOut])
@@ -22,26 +22,16 @@ async def list_resources(
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
 ) -> list[ResourceOut]:
-    base_stmt = select(Resource)
-    if provider:
-        base_stmt = base_stmt.where(Resource.provider == provider)
-    if resource_type:
-        base_stmt = base_stmt.where(Resource.resource_type == resource_type)
-    if search:
-        base_stmt = base_stmt.where(Resource.resource_urn.ilike(f"%{search}%"))
-
-    count_stmt = select(func.count()).select_from(base_stmt.subquery())
-    total = (await db.execute(count_stmt)).scalar_one()
+    resources, total = await resources_service.list_resources(
+        db, provider, resource_type, search, limit, offset
+    )
     response.headers["X-Total-Count"] = str(total)
-
-    stmt = base_stmt.order_by(Resource.last_scanned_at.desc()).limit(limit).offset(offset)
-    result = await db.execute(stmt)
-    return [ResourceOut.model_validate(r) for r in result.scalars().all()]
+    return [ResourceOut.model_validate(r) for r in resources]
 
 
 @router.get("/{resource_id}", response_model=ResourceOut)
 async def get_resource(resource_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> ResourceOut:
-    resource = await db.get(Resource, resource_id)
+    resource = await resources_service.get_resource(db, resource_id)
     if resource is None:
         raise HTTPException(status_code=404, detail="Resource not found")
     return ResourceOut.model_validate(resource)

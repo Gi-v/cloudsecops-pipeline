@@ -22,7 +22,7 @@ def _urn() -> str:
 
 
 async def test_verify_chain_valid_when_empty(db_client):
-    resp = db_client.get(f"/api/evidence/{_urn()}/verify")
+    resp = db_client.get(f"/api/v1/evidence/{_urn()}/verify")
     assert resp.status_code == 200
     body = resp.json()
     assert body["valid"] is True
@@ -35,7 +35,7 @@ async def test_archive_then_list_returns_records_in_sequence_order(db_session, d
     await evidence_store.archive(db_session, urn, None, {"finding": "second"})
     await db_session.commit()
 
-    resp = db_client.get(f"/api/evidence/{urn}")
+    resp = db_client.get(f"/api/v1/evidence/{urn}")
     assert resp.status_code == 200
     body = resp.json()
     assert len(body) == 2
@@ -51,7 +51,7 @@ async def test_verify_chain_valid_for_untampered_chain(db_session, db_client):
     await evidence_store.archive(db_session, urn, None, {"finding": "c"})
     await db_session.commit()
 
-    resp = db_client.get(f"/api/evidence/{urn}/verify")
+    resp = db_client.get(f"/api/v1/evidence/{urn}/verify")
     body = resp.json()
     assert body["valid"] is True
     assert body["chain_length"] == 3
@@ -80,7 +80,7 @@ async def test_verify_chain_detects_content_hash_tampering(db_session, db_client
     )
     await db_session.commit()
 
-    resp = db_client.get(f"/api/evidence/{urn}/verify")
+    resp = db_client.get(f"/api/v1/evidence/{urn}/verify")
     body = resp.json()
     assert body["valid"] is False
     assert body["broken_at_sequence"] == 0
@@ -106,7 +106,7 @@ async def test_verify_chain_detects_broken_prev_hash_link(db_session, db_client)
     )
     await db_session.commit()
 
-    resp = db_client.get(f"/api/evidence/{urn}/verify")
+    resp = db_client.get(f"/api/v1/evidence/{urn}/verify")
     body = resp.json()
     assert body["valid"] is False
     assert body["broken_at_sequence"] == 1

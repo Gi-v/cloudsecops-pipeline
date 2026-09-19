@@ -9,6 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.core.metrics import findings_created_total
 from app.db.models import CloudProvider, Finding, FindingStatus, Resource, ScanRun, Severity
 from app.evidence.store import evidence_store
 from app.policy_engine.catalog import CONTROL_BY_ID
@@ -91,6 +92,7 @@ async def evaluate_and_persist(
             },
         )
         finding.evidence_hash = evidence.content_hash
+        findings_created_total.labels(severity=finding.severity.value).inc()
 
         created_findings.append({
             "id": str(finding.id),
@@ -129,6 +131,7 @@ async def evaluate_and_persist(
         )
         db.add(finding)
         await db.flush()
+        findings_created_total.labels(severity="INFO").inc()
 
         created_findings.append({
             "id": str(finding.id),
@@ -146,7 +149,7 @@ async def evaluate_and_persist(
     # actual evaluation happens here, asynchronously per-resource via the
     # Kafka consumer, well after the HTTP response for the scan already went
     # out. Update the row's running totals as each resource's evaluation
-    # lands so GET /api/scan/{correlation_id} reflects real counts instead
+    # lands so GET /api/v1/scan/{correlation_id} reflects real counts instead
     # of being permanently stuck at 0. Uses an UPDATE ... SET x = x + n
     # (not a read-modify-write) since many resources evaluate concurrently.
     await db.execute(

@@ -15,7 +15,7 @@ def test_root(client):
 
 
 def test_list_policies_returns_catalog(client):
-    resp = client.get("/api/policies")
+    resp = client.get("/api/v1/policies")
     assert resp.status_code == 200
     controls = resp.json()
     assert len(controls) >= 15
@@ -23,7 +23,7 @@ def test_list_policies_returns_catalog(client):
 
 
 def test_list_sample_resources(client):
-    resp = client.get("/api/policies/samples")
+    resp = client.get("/api/v1/policies/samples")
     assert resp.status_code == 200
     samples = resp.json()
     assert "aws_s3_bucket" in samples
@@ -31,7 +31,7 @@ def test_list_sample_resources(client):
 
 def test_evaluate_public_bucket_via_http(client):
     resp = client.post(
-        "/api/policies/evaluate",
+        "/api/v1/policies/evaluate",
         json={
             "resource": {
                 "resource_type": "aws_s3_bucket",
@@ -47,7 +47,7 @@ def test_evaluate_public_bucket_via_http(client):
 
 def test_evaluate_private_bucket_passes_via_http(client):
     resp = client.post(
-        "/api/policies/evaluate",
+        "/api/v1/policies/evaluate",
         json={
             "resource": {
                 "resource_type": "aws_s3_bucket",
@@ -89,15 +89,30 @@ def test_security_headers_present_on_every_response(client):
     assert "camera=()" in resp.headers["permissions-policy"]
 
 
-def test_bulk_status_update_rejects_empty_list(client):
-    resp = client.patch("/api/findings/bulk-status", json={"finding_ids": [], "status": "RESOLVED"})
+def test_bulk_status_update_rejects_empty_list(client, api_key_headers):
+    resp = client.patch(
+        "/api/v1/findings/bulk-status",
+        json={"finding_ids": [], "status": "RESOLVED"},
+        headers=api_key_headers,
+    )
     assert resp.status_code == 400
 
 
-def test_bulk_status_update_rejects_too_many_ids(client):
+def test_bulk_status_update_rejects_too_many_ids(client, api_key_headers):
     ids = [f"00000000-0000-0000-0000-{i:012d}" for i in range(501)]
-    resp = client.patch("/api/findings/bulk-status", json={"finding_ids": ids, "status": "RESOLVED"})
+    resp = client.patch(
+        "/api/v1/findings/bulk-status",
+        json={"finding_ids": ids, "status": "RESOLVED"},
+        headers=api_key_headers,
+    )
     assert resp.status_code == 400
+
+
+def test_bulk_status_update_rejects_unauthenticated_request(client):
+    resp = client.patch(
+        "/api/v1/findings/bulk-status", json={"finding_ids": [], "status": "RESOLVED"}
+    )
+    assert resp.status_code == 401
 
 
 async def test_unhandled_exception_handler_returns_clean_json():
@@ -120,5 +135,5 @@ async def test_unhandled_exception_handler_returns_clean_json():
     import json
 
     body = json.loads(response.body)
-    assert body["error"] == "internal_error"
-    assert "boom" not in body["detail"]  # never leak internal exception text
+    assert body["error"]["code"] == "internal_error"
+    assert "boom" not in body["error"]["message"]  # never leak internal exception text

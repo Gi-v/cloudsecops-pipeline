@@ -9,18 +9,22 @@ See ARCHITECTURE.md for the full data flow.
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi.errors import RateLimitExceeded
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.alerting.notifier import deliver_alert, extract_critical_alerts
-from app.api.routes import evidence, findings, health, metrics, policies, resources, scan
+from app.api.routes import auth, evidence, findings, health, metrics, policies, resources, scan
 from app.core.config import get_settings
+from app.core.errors import code_for_status, current_request_id
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from app.core.rate_limit import limiter
+from app.core.security import seed_admin_if_missing
 from app.db.database import AsyncSessionLocal, init_models
 from app.kafka.consumer import KafkaConsumerClient
 from app.kafka.producer import producer_client
@@ -70,7 +74,7 @@ async def _auto_seed() -> None:
     a demo that "works if you know to click Run Scan" and one that's alive
     the moment you open it. Controlled by AUTO_SEED_ON_STARTUP.
     """
-    from app.api.routes.scan import run_scan_standalone
+    from app.services.scan_service import run_scan_standalone
 
     await asyncio.sleep(2)  # let consumers finish subscribing first
     try:
@@ -85,6 +89,7 @@ async def lifespan(app: FastAPI):
     global _raw_consumer, _enriched_consumer, _alert_consumer
 
     await init_models()
+    await seed_admin_if_missing()
     await producer_client.start()
 
     _raw_consumer = KafkaConsumerClient(FINDINGS_RAW, group_id="policy-engine")
@@ -131,8 +136,48 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRe
     return JSONResponse(
         status_code=429,
         content={
-            "error": "rate_limited",
-            "detail": f"Too many scan requests — limit is {exc.detail}. Try again shortly.",
+            "error": {
+                "code": "rate_limited",
+                "message": f"Too many scan requests — limit is {exc.detail}. Try again shortly.",
+                "request_id": current_request_id(),
+            }
+        },
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    """Wraps every route-raised HTTPException (404s, 401s, the RBAC 403s,
+    etc.) into the same {"error": {...}} shape as every other error path,
+    instead of FastAPI's default bare {"detail": ...}."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": code_for_status(exc.status_code),
+                "message": str(exc.detail),
+                "request_id": current_request_id(),
+            }
+        },
+        headers=getattr(exc, "headers", None),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    message = "; ".join(
+        f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()
+    )
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": {
+                "code": "validation_error",
+                "message": message,
+                "request_id": current_request_id(),
+            }
         },
     )
 
@@ -142,7 +187,13 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     logger.exception("unhandled_exception", path=str(request.url))
     return JSONResponse(
         status_code=500,
-        content={"error": "internal_error", "detail": "An unexpected error occurred."},
+        content={
+            "error": {
+                "code": "internal_error",
+                "message": "An unexpected error occurred.",
+                "request_id": current_request_id(),
+            }
+        },
     )
 
 
@@ -167,13 +218,21 @@ app.add_middleware(
 # route). Exposed automatically; no app code needs to touch it.
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
+# Health, the Prometheus /metrics scrape endpoint (registered above via
+# Instrumentator), and /ws/live are infra-level endpoints, not part of the
+# API contract — they stay unversioned. Everything else is aggregated under
+# /api/v1 so the API can version independently of those.
 app.include_router(health.router)
-app.include_router(scan.router)
-app.include_router(resources.router)
-app.include_router(findings.router)
-app.include_router(policies.router)
-app.include_router(evidence.router)
-app.include_router(metrics.router)
+
+v1 = APIRouter(prefix="/api/v1")
+v1.include_router(auth.router)
+v1.include_router(scan.router)
+v1.include_router(resources.router)
+v1.include_router(findings.router)
+v1.include_router(policies.router)
+v1.include_router(evidence.router)
+v1.include_router(metrics.router)
+app.include_router(v1)
 
 
 @app.websocket("/ws/live")

@@ -9,7 +9,7 @@ from app.policy_engine.catalog import CONTROL_CATALOG, SAMPLE_RESOURCES
 from app.policy_engine.opa_client import opa_client
 from app.schemas.schemas import PolicyEvalRequest, PolicyEvalResult
 
-router = APIRouter(prefix="/api/policies", tags=["policies"])
+router = APIRouter(prefix="/policies", tags=["policies"])
 
 
 @router.get("")

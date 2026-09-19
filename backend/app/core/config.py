@@ -10,7 +10,10 @@ class Settings(BaseSettings):
 
     # App
     app_env: Literal["development", "staging", "production"] = "development"
-    app_secret_key: str = "change-me-in-production"
+    # Also the JWT HS256 signing secret (app/core/security.py) — kept at 32+
+    # chars even as a dev default so pyjwt never warns about a
+    # below-recommended HMAC key length (RFC 7518 section 3.2).
+    app_secret_key: str = "change-me-in-production-please-32-chars-min"
     log_level: str = "INFO"
 
     # Postgres
@@ -44,10 +47,20 @@ class Settings(BaseSettings):
     collector_max_concurrency: int = 8
     auto_seed_on_startup: bool = True
     rate_limit_scan_per_minute: int = 6
+    rate_limit_login_per_minute: int = 10
 
     # Auth (mutating endpoints only — see app/core/auth.py)
     api_auth_enabled: bool = False
     api_key: str = ""
+
+    # JWT (human login — see app/core/security.py). Reuses app_secret_key
+    # (above) as the HS256 signing secret rather than adding a second
+    # secret to configure.
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+    auto_seed_admin_on_startup: bool = True
+    seed_admin_username: str = "admin"
+    seed_admin_password: str = "change-me-on-first-login"
 
     # CORS — comma-separated origin list. "*" cannot be combined with
     # allow_credentials=True (browsers reject the resulting preflight, per
