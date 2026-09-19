@@ -1,14 +1,18 @@
 import {
+  BarChart3,
   Bell,
   FileSearch,
   LayoutDashboard,
+  LogOut,
   Menu,
   ServerCog,
   ShieldCheck,
+  Users,
   X,
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import { useLiveFeedContext } from "@/context/LiveFeedContext";
 
 const NAV_ITEMS = [
@@ -17,6 +21,7 @@ const NAV_ITEMS = [
   { to: "/resources", label: "Resources", icon: ServerCog },
   { to: "/policies", label: "Policy Simulator", icon: FileSearch },
   { to: "/evidence", label: "Evidence Chain", icon: FileSearch },
+  { to: "/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
 /** Hexagon + dot brand mark — hex is a common security-iconography motif.
@@ -38,9 +43,23 @@ function LogoMark() {
 export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { connected, alertCounts, clearAlertCounts } = useLiveFeedContext();
+  const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
 
   const totalAlerts = alertCounts.critical + alertCounts.high;
+  const navItems = hasRole("admin")
+    ? [...NAV_ITEMS, { to: "/admin", label: "Admin", icon: Users }]
+    : NAV_ITEMS;
+
+  function handleLogout() {
+    // No explicit navigate() here: clearing `user` makes App.tsx's
+    // RequireAuth redirect to /login on its own next render. A second,
+    // separate navigate("/login") call here used to race that redirect —
+    // whichever one's `location.state.from` won determined where the next
+    // login landed, nondeterministically.
+    logout();
+    setMobileOpen(false);
+  }
 
   function openAlerts() {
     clearAlertCounts();
@@ -93,7 +112,7 @@ export default function Sidebar() {
       </div>
 
       <nav className={`sidebar-nav${mobileOpen ? " open" : ""}`}>
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -109,12 +128,22 @@ export default function Sidebar() {
 
       <div className="sidebar-footer">
         <div className="sidebar-user">
-          <span className="sidebar-user-avatar">HA</span>
+          <span className="sidebar-user-avatar">
+            {(user?.username ?? "?").slice(0, 2).toUpperCase()}
+          </span>
           <div>
-            <div className="sidebar-user-name">Hareem Ahmad</div>
-            <div className="sidebar-user-role">Security Analyst</div>
+            <div className="sidebar-user-name">{user?.username}</div>
+            <div className="sidebar-user-role">{user?.role === "admin" ? "Administrator" : "Viewer"}</div>
           </div>
         </div>
+        <button
+          className="icon-btn"
+          onClick={handleLogout}
+          aria-label="Log out"
+          title="Log out"
+        >
+          <LogOut size={14} />
+        </button>
       </div>
     </aside>
   );

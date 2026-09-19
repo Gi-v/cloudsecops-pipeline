@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { endpoints } from "@/api/client";
+import { useAuth } from "@/context/AuthContext";
 import type { Finding, Resource } from "@/types";
 
 interface StaticCommand {
@@ -45,6 +46,7 @@ export default function CommandPalette() {
   const [findingResults, setFindingResults] = useState<Finding[]>([]);
   const [resourceResults, setResourceResults] = useState<Resource[]>([]);
   const navigate = useNavigate();
+  const { hasRole } = useAuth();
 
   const staticCommands = useMemo<StaticCommand[]>(
     () => [
@@ -53,22 +55,29 @@ export default function CommandPalette() {
       { kind: "static", id: "resources", label: "Go to Resources", icon: ServerCog, run: () => navigate("/resources") },
       { kind: "static", id: "policies", label: "Go to Policy Simulator", icon: FileSearch, run: () => navigate("/policies") },
       { kind: "static", id: "evidence", label: "Go to Evidence Chain", icon: FileSearch, run: () => navigate("/evidence") },
-      {
-        kind: "static",
-        id: "scan",
-        label: "Run a full scan",
-        hint: "AWS + GCP + Azure",
-        icon: RefreshCw,
-        run: () => {
-          toast.promise(endpoints.triggerScan(), {
-            loading: "Scanning cloud resources…",
-            success: (res) => `Scanned ${res.data.resources_scanned} resources in ${res.data.duration_ms}ms`,
-            error: "Scan failed — is the backend running?",
-          });
-        },
-      },
+      // Run Scan is an admin-only mutating action (see app/core/security.py's
+      // require_role gate) — omitted from the palette entirely for a viewer
+      // rather than shown and left to fail with a 403 on run.
+      ...(hasRole("admin")
+        ? [
+            {
+              kind: "static" as const,
+              id: "scan",
+              label: "Run a full scan",
+              hint: "AWS + GCP + Azure",
+              icon: RefreshCw,
+              run: () => {
+                toast.promise(endpoints.triggerScan(), {
+                  loading: "Scanning cloud resources…",
+                  success: (res) => `Scanned ${res.data.resources_scanned} resources in ${res.data.duration_ms}ms`,
+                  error: "Scan failed — is the backend running?",
+                });
+              },
+            },
+          ]
+        : []),
     ],
-    [navigate],
+    [navigate, hasRole],
   );
 
   const filteredStatic = useMemo(

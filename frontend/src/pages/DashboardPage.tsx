@@ -15,6 +15,7 @@ import SeverityPanel from "@/components/SeverityPanel";
 import TextGenerateEffect from "@/components/TextGenerateEffect";
 import TopRiskResources from "@/components/TopRiskResources";
 import TrendChart from "@/components/TrendChart";
+import { useAuth } from "@/context/AuthContext";
 import { useDashboardPolling } from "@/hooks/useDashboardPolling";
 import { celebrateScoreImprovement } from "@/lib/confetti";
 
@@ -22,6 +23,7 @@ const SUCCESS_BAND = 80;
 
 export default function DashboardPage() {
   const { metrics, families, trend, topRisk, loading, refresh } = useDashboardPolling();
+  const { hasRole } = useAuth();
 
   // Confetti is gated on both a real improvement AND a scan the user just
   // triggered themselves (scanJustTriggered) — a background poll that
@@ -66,7 +68,7 @@ export default function DashboardPage() {
             <p className="page-sub-mono">AWS · GCP · Azure</p>
           </div>
         </div>
-        <ScanButton onDone={handleScanDone} />
+        {hasRole("admin") && <ScanButton onDone={handleScanDone} />}
       </div>
 
       <div className="kpi-row">

@@ -8,6 +8,7 @@ import SearchInput from "@/components/SearchInput";
 import SeverityChip from "@/components/SeverityChip";
 import { TableRowSkeleton } from "@/components/Skeleton";
 import TextGenerateEffect from "@/components/TextGenerateEffect";
+import { useAuth } from "@/context/AuthContext";
 import { PAGE_SIZE, SEVERITIES, useFindingsQuery } from "@/hooks/useFindingsQuery";
 import type { FindingStatus, Severity } from "@/types";
 
@@ -23,6 +24,7 @@ const SEVERITY_LABELS: Record<Severity, string> = {
 };
 
 export default function FindingsPage() {
+  const { hasRole } = useAuth();
   const {
     findings,
     total,
@@ -48,7 +50,7 @@ export default function FindingsPage() {
     if (severity !== "ALL") params.set("severity", severity);
     if (search) params.set("search", search);
     const qs = params.toString();
-    window.open(`${api.defaults.baseURL}/api/findings/export.csv${qs ? `?${qs}` : ""}`, "_blank");
+    window.open(`${api.defaults.baseURL}/api/v1/findings/export.csv${qs ? `?${qs}` : ""}`, "_blank");
   }
 
   const allSelected = findings.length > 0 && selected.size === findings.length;
@@ -72,7 +74,7 @@ export default function FindingsPage() {
           <button className="btn btn-secondary" onClick={exportCsv}>
             <Download size={14} /> Export CSV
           </button>
-          <ScanButton onDone={reload} />
+          {hasRole("admin") && <ScanButton onDone={reload} />}
         </div>
       </div>
 
@@ -113,7 +115,9 @@ export default function FindingsPage() {
         // conditional rendering still fades the bar in on select via its
         // own `initial`/`animate`; it just unmounts immediately (no
         // fade-out) on deselect instead of leaking an invisible node.
-        selected.size > 0 && (
+        // Admin-only, like the status dropdown below — a viewer's PATCH
+        // would just 403 (see app/core/security.py's require_role gate).
+        hasRole("admin") && selected.size > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -212,17 +216,21 @@ export default function FindingsPage() {
                   </td>
                   <td style={{ fontFamily: "var(--sans)", color: "var(--t1)" }}>{f.title}</td>
                   <td>
-                    <select
-                      className="status-select"
-                      value={f.status}
-                      onChange={(e) => changeStatus(f.id, e.target.value as FindingStatus)}
-                    >
-                      {STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
+                    {hasRole("admin") ? (
+                      <select
+                        className="status-select"
+                        value={f.status}
+                        onChange={(e) => changeStatus(f.id, e.target.value as FindingStatus)}
+                      >
+                        {STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span style={{ fontSize: 12, color: "var(--t2)" }}>{f.status}</span>
+                    )}
                   </td>
                   <td style={{ fontSize: 11, color: "var(--t3)", letterSpacing: 0 }}>
                     {f.evidence_hash ? `${f.evidence_hash.slice(0, 8)}…` : "—"}

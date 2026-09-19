@@ -11,6 +11,7 @@ import ScanButton from "@/components/ScanButton";
 import SearchInput from "@/components/SearchInput";
 import { TableRowSkeleton } from "@/components/Skeleton";
 import TextGenerateEffect from "@/components/TextGenerateEffect";
+import { useAuth } from "@/context/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import type { CloudProvider, Resource } from "@/types";
 
@@ -26,6 +27,7 @@ function formatScanned(iso: string) {
 }
 
 export default function ResourcesPage() {
+  const { hasRole } = useAuth();
   const [searchParams] = useSearchParams();
   const urlSearch = searchParams.get("search");
 
@@ -85,7 +87,7 @@ export default function ResourcesPage() {
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <SearchInput value={search} onSearch={setSearch} placeholder="Search resource URN…" />
-          <ScanButton onDone={reload} />
+          {hasRole("admin") && <ScanButton onDone={reload} />}
         </div>
       </div>
 

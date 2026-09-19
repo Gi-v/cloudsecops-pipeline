@@ -2,12 +2,14 @@ import { motion } from "framer-motion";
 import { Suspense, lazy } from "react";
 import { RefreshCw } from "lucide-react";
 import { Toaster } from "sonner";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import CommandPalette from "@/components/CommandPalette";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Sidebar from "@/components/Sidebar";
 import Spotlight from "@/components/Spotlight";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { LiveFeedProvider } from "@/context/LiveFeedContext";
+import LoginPage from "@/pages/LoginPage";
 
 // Route-level code splitting — only DashboardPage pulls in Chart.js
 // (~66KB gzipped, see vendor-charts in the build output), but every page
@@ -22,6 +24,8 @@ const EvidencePage = lazy(() => import("@/pages/EvidencePage"));
 const FindingsPage = lazy(() => import("@/pages/FindingsPage"));
 const PolicySimulatorPage = lazy(() => import("@/pages/PolicySimulatorPage"));
 const ResourcesPage = lazy(() => import("@/pages/ResourcesPage"));
+const AdminPage = lazy(() => import("@/pages/AdminPage"));
+const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage"));
 
 function RouteLoadingFallback() {
   return (
@@ -61,19 +65,46 @@ function AnimatedRoutes() {
           <Route path="/resources" element={<ResourcesPage />} />
           <Route path="/policies" element={<PolicySimulatorPage />} />
           <Route path="/evidence" element={<EvidencePage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route
+            path="/admin"
+            element={
+              <RequireRole role="admin">
+                <AdminPage />
+              </RequireRole>
+            }
+          />
         </Routes>
       </Suspense>
     </motion.div>
   );
 }
 
-export default function App() {
+/** Blocks rendering the authenticated shell until the initial "is there
+ * already a valid token" check resolves — otherwise every fresh page load
+ * would flash a redirect to /login before AuthContext has had a chance to
+ * confirm the stored token still works. */
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) return <RouteLoadingFallback />;
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+  return <>{children}</>;
+}
+
+/** A viewer hitting an admin-only route (typed URL, stale bookmark) gets
+ * bounced to the dashboard rather than a bare 403 — the backend still
+ * enforces the real gate on every request either way. */
+function RequireRole({ role, children }: { role: "admin"; children: React.ReactNode }) {
+  const { hasRole } = useAuth();
+  if (!hasRole(role)) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function AuthenticatedApp() {
   return (
     <LiveFeedProvider>
-      <div className="aurora-bg" aria-hidden="true">
-        <Spotlight fill="#5b6af0" />
-        <Spotlight fill="#1db954" className="spotlight-2" />
-      </div>
       <div className="app-shell">
         <Sidebar />
         <main className="main-content">
@@ -82,9 +113,30 @@ export default function App() {
           </ErrorBoundary>
         </main>
       </div>
-
       <CommandPalette />
-      <Toaster theme="dark" position="bottom-right" richColors closeButton />
     </LiveFeedProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <div className="aurora-bg" aria-hidden="true">
+        <Spotlight fill="#5b6af0" />
+        <Spotlight fill="#1db954" className="spotlight-2" />
+      </div>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/*"
+          element={
+            <RequireAuth>
+              <AuthenticatedApp />
+            </RequireAuth>
+          }
+        />
+      </Routes>
+      <Toaster theme="dark" position="bottom-right" richColors closeButton />
+    </AuthProvider>
   );
 }

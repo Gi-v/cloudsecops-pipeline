@@ -1,6 +1,22 @@
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 export type FindingStatus = "OPEN" | "IN_REVIEW" | "ASSIGNED" | "RESOLVED" | "SUPPRESSED";
 export type CloudProvider = "AWS" | "GCP" | "AZURE";
+export type UserRole = "viewer" | "admin";
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  role: UserRole;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Token {
+  access_token: string;
+  token_type: string;
+  role: UserRole;
+}
 
 export interface Resource {
   id: string;
