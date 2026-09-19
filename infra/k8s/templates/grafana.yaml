@@ -1,0 +1,171 @@
+{{- if .Values.observability.enabled }}
+# Mirrors docker-compose.yml's local Grafana (ADR-006): the same
+# provisioning-as-code datasource + dashboard, delivered via ConfigMaps
+# instead of bind mounts. The dashboard JSON is embedded from
+# dashboards/cloudsecops-overview.json (kept in sync with the copy
+# infra/observability/grafana/dashboards uses for docker-compose) via
+# Helm's .Files.Get, so there's one dashboard definition to review, not two
+# hand-typed copies drifting apart.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-grafana-datasources
+  namespace: {{ .Release.Namespace }}
+data:
+  datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus-ds
+        type: prometheus
+        access: proxy
+        url: http://{{ .Release.Name }}-prometheus:9090
+        isDefault: true
+        editable: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-grafana-dashboards-provider
+  namespace: {{ .Release.Namespace }}
+data:
+  dashboard.yml: |
+    apiVersion: 1
+    providers:
+      - name: CloudSecOps
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /etc/grafana/provisioning/dashboards/json
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-grafana-dashboard-json
+  namespace: {{ .Release.Namespace }}
+data:
+  cloudsecops-overview.json: |
+{{ .Files.Get "dashboards/cloudsecops-overview.json" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cloudsecops-grafana
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: cloudsecops-grafana
+  template:
+    metadata:
+      labels:
+        app: cloudsecops-grafana
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: grafana
+          image: "grafana/grafana:12.4.0"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: {{ .Values.observability.grafana.adminUser | quote }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-grafana-secrets
+                  key: adminPassword
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+              readOnly: true
+            - name: dashboards-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+              readOnly: true
+            - name: dashboard-json
+              mountPath: /etc/grafana/provisioning/dashboards/json
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/grafana
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: datasources
+          configMap:
+            name: {{ .Release.Name }}-grafana-datasources
+        - name: dashboards-provider
+          configMap:
+            name: {{ .Release.Name }}-grafana-dashboards-provider
+        - name: dashboard-json
+          configMap:
+            name: {{ .Release.Name }}-grafana-dashboard-json
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-grafana-data
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-grafana-secrets
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData:
+  # checkov:skip=CKV_SECRET_4: CHANGE_ME is a literal, intentional placeholder
+  # (values.yaml's own observability.grafana.adminPassword comment), not a
+  # real credential.
+  adminPassword: {{ .Values.observability.grafana.adminPassword | quote }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-grafana-data
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.observability.grafana.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-grafana
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: cloudsecops-grafana
+  ports:
+    - port: 3000
+      targetPort: 3000
+{{- end }}

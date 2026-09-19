@@ -1,0 +1,91 @@
+{{- if .Values.postgres.enabled }}
+# Single-instance Postgres for in-cluster/demo deployments — a real
+# production environment should point DATABASE_URL (backend-secrets) at a
+# managed instance (RDS, Cloud SQL) instead, the same escape hatch
+# kafka.externalBootstrapServers already documents for Kafka.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cloudsecops-postgres
+spec:
+  serviceName: {{ .Release.Name }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudsecops-postgres
+  template:
+    metadata:
+      labels:
+        app: cloudsecops-postgres
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: "postgres:16-alpine"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              # Matches the password segment hardcoded into backend-secrets'
+              # DATABASE_URL — both are CHANGE_ME placeholders that must be
+              # overridden together in any real deployment.
+              value: "CHANGE_ME"
+            # postgres:16-alpine's default PGDATA is directly on the mounted
+            # volume's root, where the image's own lost+found directory (on
+            # some CSI drivers) makes initdb refuse to start ("directory
+            # exists but is not empty"). A subdirectory sidesteps that.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.user | quote }}]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.user | quote }}]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-postgres
+  namespace: {{ .Release.Namespace }}
+spec:
+  clusterIP: None
+  selector:
+    app: cloudsecops-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+{{- end }}

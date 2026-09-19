@@ -29,8 +29,8 @@ uvicorn app.main:app --reload
 Then:
 
 - Swagger UI: http://localhost:8000/docs
-- Trigger a scan: `POST /api/scan` with `{}` (all providers) or `{"provider": "AWS"}`
-- Watch findings land: `GET /api/findings`
+- Trigger a scan: `POST /api/v1/scan` with `{}` (all providers) or `{"provider": "AWS"}`
+- Watch findings land: `GET /api/v1/findings`
 - Live feed: connect a WebSocket client to `ws://localhost:8000/ws/live`
 
 Without Kafka/OPA/MinIO running, you'll see log lines like
@@ -53,12 +53,12 @@ backend + frontend together.
 - **Auto-seed on startup** (`AUTO_SEED_ON_STARTUP=true`, default) — the backend runs one
   full scan a couple seconds after boot, so the dashboard has real data the moment you
   open it. Disable for a clean-slate demo.
-- **Rate limiting** on `POST /api/scan` (`RATE_LIMIT_SCAN_PER_MINUTE`, default 6/min),
+- **Rate limiting** on `POST /api/v1/scan` (`RATE_LIMIT_SCAN_PER_MINUTE`, default 6/min),
   backed by Redis when reachable, in-memory otherwise (`app/core/rate_limit.py`).
-- **CSV export** — `GET /api/findings/export.csv` streams every matching finding
+- **CSV export** — `GET /api/v1/findings/export.csv` streams every matching finding
   (respects the same filters as the list endpoint) as an audit-ready CSV, evidence hash
   included per row.
-- **Pagination headers** — `GET /api/findings` and `GET /api/resources` return an
+- **Pagination headers** — `GET /api/v1/findings` and `GET /api/v1/resources` return an
   `X-Total-Count` response header alongside the page of results.
 - **Global exception handling** — unhandled errors return clean JSON
   (`{"error": "internal_error", "detail": "..."}`) instead of a stack trace; rate-limit
@@ -80,15 +80,15 @@ backend + frontend together.
   — including deep inside the evaluator — carries the same ID. See `app/core/middleware.py`.
 - **Prometheus metrics** at `GET /metrics` (request counts/latency histograms per route),
   via `prometheus-fastapi-instrumentator`.
-- **Optional API-key auth** on mutating endpoints only (`POST /api/scan`,
-  `PATCH /api/findings/*/status`, `PATCH /api/findings/bulk-status`) — off by default
+- **Optional API-key auth** on mutating endpoints only (`POST /api/v1/scan`,
+  `PATCH /api/v1/findings/*/status`, `PATCH /api/v1/findings/bulk-status`) — off by default
   (`API_AUTH_ENABLED=false`), set it + `API_KEY` for anything resembling a real
   deployment. Read endpoints stay open either way (see `app/core/auth.py` for the
   reasoning). Send the key as `X-API-Key: <key>`.
-- **Bulk finding updates** — `PATCH /api/findings/bulk-status` with `{finding_ids, status}`.
-- **Free-text search** — `?search=` on `GET /api/findings` (title/control_id/description)
-  and `GET /api/resources` (resource URN).
-- **Scan history** — `GET /api/scan` lists recent runs (previously only fetchable by
+- **Bulk finding updates** — `PATCH /api/v1/findings/bulk-status` with `{finding_ids, status}`.
+- **Free-text search** — `?search=` on `GET /api/v1/findings` (title/control_id/description)
+  and `GET /api/v1/resources` (resource URN).
+- **Scan history** — `GET /api/v1/scan` lists recent runs (previously only fetchable by
   correlation ID).
 
 ## Running tests
@@ -125,4 +125,4 @@ app/
    `asyncio.TaskGroup`.
 3. Add matching Rego policies in `../policies/<framework>/` and a Python mirror in
    `app/policy_engine/local_fallback.py`.
-4. Add the control to `app/policy_engine/catalog.py` so it shows up in `GET /api/policies`.
+4. Add the control to `app/policy_engine/catalog.py` so it shows up in `GET /api/v1/policies`.

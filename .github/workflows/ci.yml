@@ -144,6 +144,63 @@ jobs:
           # consistently documented than the main IaC checks.
           skip_check: "CKV_K8S_35,CKV_K8S_43,CKV_K8S_21,CKV_SECRET_4"
 
+  k8s-deploy-smoke-test:
+    name: k8s deploy smoke test (kind)
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-build]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: cloudsecops-ci
+      - uses: azure/setup-helm@v4
+      - name: Build backend image
+        run: docker build -t cloudsecops/backend:ci ./backend
+      - name: Build frontend image (prod target)
+        run: docker build --target prod -t cloudsecops/frontend:ci ./frontend
+      - name: Load images into kind
+        run: |
+          kind load docker-image cloudsecops/backend:ci --name cloudsecops-ci
+          kind load docker-image cloudsecops/frontend:ci --name cloudsecops-ci
+      - name: Seed OPA policy ConfigMap
+        # --from-file=policies/ alone would silently drop everything under
+        # policies/cis, policies/nist, policies/iso27001 — same flattening
+        # step as `make k8s-up` (see Makefile and infra/k8s's own
+        # configmap.yaml comment for why).
+        run: |
+          kubectl create namespace cloudsecops
+          mkdir -p /tmp/policies-flat
+          find policies -name "*.rego" -not -path "*/tests/*" | while read -r f; do
+            cp "$f" "/tmp/policies-flat/$(echo "$f" | sed -e 's#^policies/##' -e 's#/#_#g')"
+          done
+          kubectl create configmap cloudsecops-policies --from-file=/tmp/policies-flat -n cloudsecops
+      - name: helm install
+        run: |
+          helm upgrade --install cloudsecops infra/k8s -n cloudsecops \
+            --set backend.image.repository=cloudsecops/backend \
+            --set backend.image.tag=ci \
+            --set backend.image.pullPolicy=IfNotPresent \
+            --set frontend.image.repository=cloudsecops/frontend \
+            --set frontend.image.tag=ci \
+            --set frontend.image.pullPolicy=IfNotPresent \
+            --set ingress.enabled=false
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/cloudsecops-backend -n cloudsecops --timeout=300s
+          kubectl rollout status deployment/cloudsecops-frontend -n cloudsecops --timeout=300s
+      - name: Curl /healthz through a port-forward
+        run: |
+          kubectl port-forward -n cloudsecops svc/cloudsecops-backend 8000:80 &
+          sleep 5
+          curl -sf http://localhost:8000/healthz
+      - name: Dump pod status on failure
+        if: failure()
+        run: |
+          kubectl get pods -n cloudsecops
+          kubectl describe pods -n cloudsecops
+          kubectl logs -n cloudsecops -l app=cloudsecops-backend --tail=100
+
   docker-build:
     name: Build & push images
     runs-on: ubuntu-latest

@@ -1,7 +1,9 @@
 import {
   BarChart3,
   Bell,
+  ExternalLink,
   FileSearch,
+  Gauge,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -50,6 +52,7 @@ export default function Sidebar() {
   const navItems = hasRole("admin")
     ? [...NAV_ITEMS, { to: "/admin", label: "Admin", icon: Users }]
     : NAV_ITEMS;
+  const grafanaUrl = import.meta.env.VITE_GRAFANA_URL;
 
   function handleLogout() {
     // No explicit navigate() here: clearing `user` makes App.tsx's
@@ -124,6 +127,19 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+        {grafanaUrl && (
+          <a
+            href={grafanaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="sidebar-link"
+            onClick={() => setMobileOpen(false)}
+          >
+            <Gauge size={14} strokeWidth={2} />
+            <span>Grafana</span>
+            <ExternalLink size={11} style={{ marginLeft: "auto", opacity: 0.55 }} />
+          </a>
+        )}
       </nav>
 
       <div className="sidebar-footer">

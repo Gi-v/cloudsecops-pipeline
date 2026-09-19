@@ -40,3 +40,12 @@ logs/
 htmlcov/
 .coverage
 coverage.xml
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+!terraform.tfvars.example

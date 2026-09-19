@@ -3,8 +3,8 @@
 <img width="100%" src="./.github/assets/banner.svg" alt="CloudSecOps Pipeline — collect, evaluate, evidence, broadcast, alert" />
 
 <a href="https://github.com/Gi-v/cloudsecops-pipeline/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Gi-v/cloudsecops-pipeline/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=0f0f1a&color=5b6af0" alt="CI status" /></a>
-<img src="https://img.shields.io/badge/backend-111%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="backend tests" />
-<img src="https://img.shields.io/badge/frontend-109%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="frontend tests" />
+<img src="https://img.shields.io/badge/backend-124%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="backend tests" />
+<img src="https://img.shields.io/badge/frontend-124%20tests-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="frontend tests" />
 <img src="https://img.shields.io/badge/license-MIT-5b6af0?style=for-the-badge&labelColor=0f0f1a" alt="MIT license" />
 
 <br/>
@@ -155,6 +155,10 @@ hash-chain evidence design, `asyncio` for collection — has a written decision 
 | [002](docs/adr/ADR-002-opa-rego-policy-as-code.md) | OPA/Rego for policy-as-code |
 | [003](docs/adr/ADR-003-evidence-store-hash-chain.md) | MinIO + SHA-256 hash chain for evidence |
 | [004](docs/adr/ADR-004-asyncio-collection.md) | `asyncio` for cloud resource collection |
+| [005](docs/adr/ADR-005-service-layer-and-api-versioning.md) | Service layer + `/api/v1` versioning |
+| [006](docs/adr/ADR-006-observability-prometheus-grafana.md) | Prometheus + Grafana observability |
+| [007](docs/adr/ADR-007-jwt-auth-and-rbac.md) | JWT login + role-based access control |
+| [008](docs/adr/ADR-008-terraform-aws-reference-module.md) | Terraform AWS reference module — validated, not applied |
 
 Full system design, data flow, and failure-mode handling: **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
@@ -203,6 +207,26 @@ The Policy Simulator evaluates arbitrary pasted JSON against the live control ca
 
 </td>
 </tr>
+<tr>
+<td width="33%" valign="top">
+
+### 🔐 Secure it
+Real JWT login with viewer/admin roles, hybrid with the existing API-key path for automation — a viewer gets an actual 403 on mutating endpoints, not just a hidden button (ADR-007).
+
+</td>
+<td width="33%" valign="top">
+
+### 📊 Observe it
+Custom Prometheus counters/gauges (scans, findings by severity, evidence verifications, the live security score) feed a Grafana dashboard that's fully provisioned on `docker compose up` (ADR-006).
+
+</td>
+<td width="33%" valign="top">
+
+### 📈 Analyze it
+An Analytics page charts score trend, provider-by-provider comparison, and a findings timeline over a much longer window than the dashboard's single-scan snapshot.
+
+</td>
+</tr>
 </table>
 
 ---
@@ -218,8 +242,10 @@ docker compose up --build
 
 | Service | URL |
 |---|---|
-| 🖥️ Dashboard | http://localhost:5173 |
+| 🖥️ Dashboard | http://localhost:5173 — log in as `admin` / `change-me-on-first-login` (seeded on first boot) |
 | 📘 API docs (Swagger) | http://localhost:8000/docs |
+| 📊 Grafana | http://localhost:3001 — anonymous viewer access, no login needed |
+| 🔥 Prometheus | http://localhost:9090 |
 | ⚖️ OPA console | http://localhost:8181 |
 | 🪣 MinIO console | http://localhost:9001 |
 
@@ -248,15 +274,20 @@ npm run dev
 
 ### Try it
 
-1. Open the dashboard and click **Run Scan** — triggers `POST /api/scan`, which runs all
-   three simulated collectors, publishes to `findings.raw`, evaluates every resource
-   against the Rego bundle, and republishes enriched results to `findings.enriched`.
+1. Log in as the seeded admin (above). Click **Run Scan** — triggers `POST /api/v1/scan`,
+   which runs all three simulated collectors, publishes to `findings.raw`, evaluates every
+   resource against the Rego bundle, and republishes enriched results to `findings.enriched`.
 2. Watch findings stream into the **Live Findings Feed** in real time — no polling.
 3. Open **Findings** to filter by severity, search, or bulk-resolve.
 4. Open **Policy Simulator** and paste any resource JSON to see it evaluated against
    every active control instantly.
 5. Open **Evidence Chain**, paste a resource URN (copy one from **Resources**), and click
    **Lookup** to see its hash chain and verification result.
+6. Open **Analytics** for longer-range trend/provider/timeline charts, or click **Grafana**
+   in the sidebar for the live metrics dashboard.
+7. Open **Admin** (admin-only) to create a `viewer`-role account, then log in as it in
+   another browser/incognito window — **Run Scan** and the bulk-action bar disappear, and
+   the same mutating endpoints now return a real 403.
 
 ---
 
@@ -272,19 +303,21 @@ npm run dev
 ## ✅ Verification
 
 ```bash
-# Backend — 111/111 passing (78 need nothing; 33 exercise findings/
-# resources/evidence/scan/metrics/the evaluator against a real
-# cloudsecops_test Postgres database). Coverage clears CI's 78% gate with
-# real margin either way, though the exact number reads a few points
-# higher locally than in CI (coverage.py counts statements a little
-# differently across Python versions). `docker compose up -d postgres`
-# first, then create the test DB once:
+# Backend — 124/124 passing, including a full JWT-login/RBAC suite
+# (test_auth_jwt.py) alongside the existing findings/resources/evidence/
+# scan/metrics/evaluator tests against a real cloudsecops_test Postgres
+# database. Coverage clears CI's 78% gate with real margin either way,
+# though the exact number reads a few points higher locally than in CI
+# (coverage.py counts statements a little differently across Python
+# versions). `docker compose up -d postgres` first, then create the test
+# DB once:
 #   PGPASSWORD=cloudsecops_dev_password psql -h localhost -U cloudsecops \
 #     -d cloudsecops -c "CREATE DATABASE cloudsecops_test"
 cd backend && pytest -q
 ruff check app && mypy app
 
-# Frontend — 109/109 passing
+# Frontend — 124/124 passing, including AuthContext/LoginPage/AdminPage/
+# AnalyticsPage
 cd frontend && npm test
 npx tsc -b --noEmit && npx eslint . && npm run build
 ```
@@ -302,15 +335,22 @@ diagnosed is in the commit history.
 
 ```
 cloudsecops-pipeline/
-├── backend/            FastAPI service — collectors, Kafka, policy evaluation, evidence store, REST/WS API
-├── policies/            Rego policy source (CIS / NIST / ISO 27001) + unit tests
-├── frontend/            React + TypeScript compliance dashboard
+├── backend/              FastAPI service — collectors, Kafka, policy evaluation, evidence
+│                         store, JWT/RBAC auth, service layer, REST/WS API (/api/v1)
+├── policies/             Rego policy source (CIS / NIST / ISO 27001) + unit tests
+├── frontend/             React + TypeScript compliance dashboard (login, RBAC-gated UI,
+│                         Admin + Analytics pages)
 ├── infra/
-│   ├── k8s/               Helm chart for production deployment
-│   └── github-actions/    CI/CD workflow (mirrored to .github/workflows/ci.yml)
+│   ├── k8s/                Self-contained Helm chart — every dependency (Postgres, Redis,
+│   │                       Kafka+Zookeeper, OPA, MinIO, Prometheus+Grafana) templated,
+│   │                       see infra/k8s/README.md
+│   ├── observability/      Prometheus scrape config + Grafana provisioning/dashboards
+│   │                       for the local docker-compose stack
+│   ├── terraform/          AWS reference module — validated (fmt/validate), never applied
+│   └── github-actions/     CI/CD workflow (mirrored to .github/workflows/ci.yml)
 ├── docs/adr/             Architecture Decision Records
 ├── portfolio/            Standalone single-page portfolio/marketing site
-└── docker-compose.yml   Full local stack
+└── docker-compose.yml    Full local stack, including Prometheus + Grafana
 ```
 
 ---

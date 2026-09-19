@@ -1,0 +1,92 @@
+{{- if .Values.minio.enabled }}
+# In-cluster S3-compatible evidence store (ADR-003). A real production
+# deployment should point MINIO_ENDPOINT at a real S3 bucket instead —
+# values.yaml's own minio block comment already flags this as the intended
+# swap; app/evidence/store.py's client works against either transparently
+# since MinIO speaks the S3 API.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-minio
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cloudsecops-minio
+spec:
+  serviceName: {{ .Release.Name }}-minio
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudsecops-minio
+  template:
+    metadata:
+      labels:
+        app: cloudsecops-minio
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: minio
+          image: "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z"
+          args: ["server", "/data", "--console-address", ":9001"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 9000
+            - containerPort: 9001
+          env:
+            - name: MINIO_ROOT_USER
+              value: "cloudsecops"
+            - name: MINIO_ROOT_PASSWORD
+              # Matches the credentials backend-secrets should carry for
+              # MINIO_ACCESS_KEY/MINIO_SECRET_KEY — both CHANGE_ME
+              # placeholders, overridden together in any real deployment.
+              value: "CHANGE_ME"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.minio.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-minio
+  namespace: {{ .Release.Namespace }}
+spec:
+  clusterIP: None
+  selector:
+    app: cloudsecops-minio
+  ports:
+    - name: api
+      port: 9000
+      targetPort: 9000
+    - name: console
+      port: 9001
+      targetPort: 9001
+{{- end }}

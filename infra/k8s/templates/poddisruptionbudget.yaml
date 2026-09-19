@@ -1,0 +1,26 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+# Bounds voluntary disruptions (node drain, cluster upgrade) separately from
+# the HPA above, which only reacts to load — without this, `kubectl drain`
+# could evict every backend/frontend replica at once.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}-backend-pdb
+  namespace: {{ .Release.Namespace }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: cloudsecops-backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}-frontend-pdb
+  namespace: {{ .Release.Namespace }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: cloudsecops-frontend
+{{- end }}

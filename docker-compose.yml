@@ -154,12 +154,45 @@ services:
     environment:
       VITE_API_BASE_URL: http://localhost:8000
       VITE_WS_URL: ws://localhost:8000/ws/live
+      VITE_GRAFANA_URL: http://localhost:3001
     depends_on:
       - backend
     volumes:
       - ./frontend/src:/app/src
     command: npm run dev -- --host 0.0.0.0
 
+  # ── Observability (ADR-006) ──────────────────────
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:12.4.0
+    ports:
+      # Host port 3001 (not Grafana's default 3000) to leave 3000 free for
+      # anything else already using it on a dev machine.
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./infra/observability/grafana/dashboards:/etc/grafana/provisioning/dashboards/json
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   postgres-data:
   minio-data:
+  prometheus-data:
+  grafana-data:

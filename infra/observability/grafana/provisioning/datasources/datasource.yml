@@ -1,0 +1,12 @@
+# Provisioning-as-code: Grafana reads this on startup and auto-configures
+# the Prometheus datasource — no manual click-through setup required.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus-ds
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

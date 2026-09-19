@@ -1,0 +1,67 @@
+{{- if and .Values.kafka.enabled (not .Values.kafka.externalBootstrapServers) }}
+# Single-node Zookeeper backing the single-broker Kafka below — demo-only,
+# same as docker-compose.yml's local stack. A real deployment should set
+# kafka.externalBootstrapServers to a managed Kafka (MSK/Confluent Cloud)
+# instead, which skips both this template and kafka.yaml entirely (see the
+# `and ... (not ...)` guard on both).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-zookeeper
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cloudsecops-zookeeper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudsecops-zookeeper
+  template:
+    metadata:
+      labels:
+        app: cloudsecops-zookeeper
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: zookeeper
+          image: "confluentinc/cp-zookeeper:7.9.10"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 2181
+          env:
+            - name: ZOOKEEPER_CLIENT_PORT
+              value: "2181"
+            - name: ZOOKEEPER_TICK_TIME
+              value: "2000"
+          readinessProbe:
+            tcpSocket:
+              port: 2181
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            tcpSocket:
+              port: 2181
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-zookeeper
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: cloudsecops-zookeeper
+  ports:
+    - port: 2181
+      targetPort: 2181
+{{- end }}

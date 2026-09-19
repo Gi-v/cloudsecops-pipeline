@@ -1,0 +1,108 @@
+{{- if .Values.observability.enabled }}
+# Mirrors docker-compose.yml's local observability stack (ADR-006) — same
+# scrape target, same 10s interval, just delivered via a ConfigMap instead
+# of a bind mount.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-prometheus-config
+  namespace: {{ .Release.Namespace }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 10s
+      evaluation_interval: 10s
+    scrape_configs:
+      - job_name: cloudsecops-backend
+        static_configs:
+          - targets: ["{{ .Release.Name }}-backend:80"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cloudsecops-prometheus
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: the single PVC below is ReadWriteOnce, so a
+  # rolling update briefly running old+new pods together would leave the
+  # new pod's volume claim stuck Pending.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: cloudsecops-prometheus
+  template:
+    metadata:
+      labels:
+        app: cloudsecops-prometheus
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: prometheus
+          image: "prom/prometheus:v3.7.3"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+              readOnly: true
+            - name: data
+              mountPath: /prometheus
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-prometheus-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-prometheus-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-prometheus-data
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.observability.prometheus.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-prometheus
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: cloudsecops-prometheus
+  ports:
+    - port: 9090
+      targetPort: 9090
+{{- end }}

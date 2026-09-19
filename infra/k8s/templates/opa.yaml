@@ -1,0 +1,73 @@
+{{- if .Values.opa.enabled }}
+# Mounts the policy ConfigMap declared in configmap.yaml (populated
+# separately — see that file's comment) as a volume; OPA hot-reloads it on
+# change, so a policy update never requires restarting this pod (ADR-002).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-opa
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cloudsecops-opa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudsecops-opa
+  template:
+    metadata:
+      labels:
+        app: cloudsecops-opa
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: opa
+          image: "openpolicyagent/opa:1.20.2"
+          # --v0-compatible: every policy under ./policies is written in
+          # OPA's pre-1.0 Rego syntax — see docker-compose.yml's opa service
+          # for the full explanation; kept identical here on purpose.
+          args:
+            - "run"
+            - "--server"
+            - "--addr=0.0.0.0:8181"
+            - "--v0-compatible"
+            - "/policies"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 8181
+          volumeMounts:
+            - name: policies
+              mountPath: /policies
+              readOnly: true
+          # No probes here on purpose, mirroring docker-compose.yml's opa
+          # service: the official image has no shell/wget/curl inside it for
+          # a probe to exec, and app/policy_engine/opa_client.py already
+          # tolerates OPA being briefly unreachable (per-request retry +
+          # local Python fallback evaluator).
+      volumes:
+        - name: policies
+          configMap:
+            name: {{ .Values.opa.policyConfigMap }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-opa
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: cloudsecops-opa
+  ports:
+    - port: 8181
+      targetPort: 8181
+{{- end }}

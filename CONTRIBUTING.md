@@ -29,7 +29,7 @@ a container security scan (Trivy + Checkov) — see that file for the full pipel
 1. Add the Rego rule under `policies/<framework>/` (see [`policies/README.md`](policies/README.md)).
 2. Mirror it in `backend/app/policy_engine/local_fallback.py` (the Python fallback used
    when OPA isn't reachable).
-3. Add it to `backend/app/policy_engine/catalog.py` so it appears in `GET /api/policies`.
+3. Add it to `backend/app/policy_engine/catalog.py` so it appears in `GET /api/v1/policies`.
 4. Add a passing + failing test case in `policies/tests/`.
 
 No backend redeploy is required for policy changes alone — OPA hot-reloads the mounted

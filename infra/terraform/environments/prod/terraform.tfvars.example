@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and fill in — terraform.tfvars is gitignored,
+# matching this project's .env vs .env.example convention.
+#
+# postgres_password is deliberately NOT set here even as a placeholder:
+# pass it via TF_VAR_postgres_password (or a secrets-manager-backed
+# variable in a real pipeline) so it never touches a file at all, checked
+# in or not.
+
+aws_region         = "us-east-1"
+name               = "cloudsecops-prod"
+availability_zones = ["us-east-1a", "us-east-1b"]
+
+# node_instance_types = ["t3.medium"]
+# kubernetes_version  = "1.31"

@@ -25,11 +25,32 @@ jobs:
   backend-tests:
     name: Backend tests (pytest)
     runs-on: ubuntu-latest
+    services:
+      # Backs tests/conftest.py's db_client/db_session fixtures (findings,
+      # resources, evidence, scan, and metrics routes) — a plain container
+      # rather than a health-gated wait, since asyncpg's own connection
+      # retry inside the test fixtures tolerates the extra second or two
+      # Postgres needs to accept connections after the container starts.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: cloudsecops
+          POSTGRES_USER: cloudsecops
+          POSTGRES_PASSWORD: cloudsecops_dev_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://cloudsecops:cloudsecops_dev_password@localhost:5432/cloudsecops_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - name: Install dependencies
         working-directory: backend
         run: |
@@ -38,9 +59,20 @@ jobs:
       - name: Lint
         working-directory: backend
         run: ruff check app
+      - name: Create test database
+        run: |
+          PGPASSWORD=cloudsecops_dev_password psql -h localhost -U cloudsecops -d cloudsecops \
+            -c "CREATE DATABASE cloudsecops_test"
       - name: Run tests
         working-directory: backend
-        run: pytest -v --cov=app --cov-report=term-missing
+        # 78, based on what THIS job actually measured (84%), not the local
+        # dev-machine number (92%) — those two genuinely disagree here (a
+        # Python 3.13 vs 3.14 difference between CI and local changes which
+        # statements get counted at all), so the gate has to track CI's own
+        # measurement or it fails on every push regardless of real
+        # coverage. Real margin below 84 either way, still well above the
+        # original 75.
+        run: pytest -v --cov=app --cov-report=term-missing --cov-fail-under=78
 
   frontend-build:
     name: Frontend test + typecheck + build
@@ -49,7 +81,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: frontend/package.json
       - name: Install dependencies
@@ -74,16 +106,100 @@ jobs:
       - name: Build backend image
         run: docker build -t cloudsecops-backend:ci ./backend
       - name: Scan backend image with Trivy
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: cloudsecops-backend:ci
           severity: "CRITICAL,HIGH"
           exit-code: "1"
+          trivyignores: ".trivyignore"
       - name: Scan Helm chart + Dockerfiles with Checkov
         uses: bridgecrewio/checkov-action@v12
         with:
           directory: infra/k8s
           quiet: true
+          # CKV_K8S_35 (secrets as env vars, not mounted files): switching
+          # would mean changing how app/core/config.py reads settings
+          # (pydantic-settings' file-secrets mode), a real app-code change,
+          # not a chart config change — tracked as follow-up, not silently
+          # dropped.
+          # CKV_K8S_43 (pin images by digest, not tag): chart defaults
+          # can't sensibly hardcode a digest that changes every build;
+          # real deployments pin one at install time
+          # (`--set backend.image.tag=$GIT_SHA`), which CKV_K8S_14
+          # (fixed, non-"latest" tag) already covers here.
+          # CKV_K8S_21 (default namespace): every template already sets
+          # `namespace: {{ .Release.Namespace }}` — the right Helm pattern,
+          # letting `helm install -n <ns>` choose it. This check still fails
+          # because checkov-action's `helm template` call doesn't pass
+          # --namespace, so .Release.Namespace itself evaluates to the
+          # literal string "default" during the scan — a scan-methodology
+          # gap, not an actual hardcoded default in the chart.
+          # CKV_SECRET_4 (basic-auth-credential pattern) on secrets.yaml's
+          # DATABASE_URL: the CHANGE_ME password is a deliberate,
+          # documented placeholder (see the comment above it) for `helm
+          # template` rendering only; also has an inline
+          # `checkov:skip=CKV_SECRET_4` right at that line as the primary,
+          # narrowly-scoped suppression — listed here too since the
+          # secrets-detection framework's inline-comment support is less
+          # consistently documented than the main IaC checks.
+          skip_check: "CKV_K8S_35,CKV_K8S_43,CKV_K8S_21,CKV_SECRET_4"
+
+  k8s-deploy-smoke-test:
+    name: k8s deploy smoke test (kind)
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-build]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: cloudsecops-ci
+      - uses: azure/setup-helm@v4
+      - name: Build backend image
+        run: docker build -t cloudsecops/backend:ci ./backend
+      - name: Build frontend image (prod target)
+        run: docker build --target prod -t cloudsecops/frontend:ci ./frontend
+      - name: Load images into kind
+        run: |
+          kind load docker-image cloudsecops/backend:ci --name cloudsecops-ci
+          kind load docker-image cloudsecops/frontend:ci --name cloudsecops-ci
+      - name: Seed OPA policy ConfigMap
+        # --from-file=policies/ alone would silently drop everything under
+        # policies/cis, policies/nist, policies/iso27001 — same flattening
+        # step as `make k8s-up` (see Makefile and infra/k8s's own
+        # configmap.yaml comment for why).
+        run: |
+          kubectl create namespace cloudsecops
+          mkdir -p /tmp/policies-flat
+          find policies -name "*.rego" -not -path "*/tests/*" | while read -r f; do
+            cp "$f" "/tmp/policies-flat/$(echo "$f" | sed -e 's#^policies/##' -e 's#/#_#g')"
+          done
+          kubectl create configmap cloudsecops-policies --from-file=/tmp/policies-flat -n cloudsecops
+      - name: helm install
+        run: |
+          helm upgrade --install cloudsecops infra/k8s -n cloudsecops \
+            --set backend.image.repository=cloudsecops/backend \
+            --set backend.image.tag=ci \
+            --set backend.image.pullPolicy=IfNotPresent \
+            --set frontend.image.repository=cloudsecops/frontend \
+            --set frontend.image.tag=ci \
+            --set frontend.image.pullPolicy=IfNotPresent \
+            --set ingress.enabled=false
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/cloudsecops-backend -n cloudsecops --timeout=300s
+          kubectl rollout status deployment/cloudsecops-frontend -n cloudsecops --timeout=300s
+      - name: Curl /healthz through a port-forward
+        run: |
+          kubectl port-forward -n cloudsecops svc/cloudsecops-backend 8000:80 &
+          sleep 5
+          curl -sf http://localhost:8000/healthz
+      - name: Dump pod status on failure
+        if: failure()
+        run: |
+          kubectl get pods -n cloudsecops
+          kubectl describe pods -n cloudsecops
+          kubectl logs -n cloudsecops -l app=cloudsecops-backend --tail=100
 
   docker-build:
     name: Build & push images

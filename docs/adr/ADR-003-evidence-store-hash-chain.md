@@ -23,7 +23,7 @@ Postgres stores only the index (resource_id → current hash, timestamp, severit
 querying; the evidentiary content lives exclusively in MinIO and is never mutated after
 write.
 
-`GET /api/evidence/{resource_id}/verify` walks the chain from genesis and recomputes every
+`GET /api/v1/evidence/{resource_id}/verify` walks the chain from genesis and recomputes every
 hash, returning `valid: true` only if every link matches — any modification, insertion, or
 deletion breaks the chain at that point and is reported.
 
@@ -32,7 +32,7 @@ deletion breaks the chain at that point and is reported.
 **Positive**
 - Tampering is cryptographically detectable, not just access-controlled.
 - Audit prep time dropped from a manual evidence-gathering exercise to
-  `GET /api/evidence/export?range=...` — the chain doubles as an auto-assembled audit
+  `GET /api/v1/evidence/export?range=...` — the chain doubles as an auto-assembled audit
   package.
 - Immutability is enforced at the storage layer (write-once semantics), not just by
   application logic that could have a bug.

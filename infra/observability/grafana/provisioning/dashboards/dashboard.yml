@@ -1,0 +1,13 @@
+# Tells Grafana to auto-load every dashboard JSON in the mounted
+# ../dashboards folder on startup, rather than requiring an import step.
+apiVersion: 1
+
+providers:
+  - name: CloudSecOps
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

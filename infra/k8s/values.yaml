@@ -54,6 +54,9 @@ minio:
   enabled: true
   storage: 20Gi
 
+redis:
+  enabled: true
+
 ingress:
   enabled: true
   host: cloudsecops.example.com
@@ -64,3 +67,24 @@ autoscaling:
   minReplicas: 2
   maxReplicas: 8
   targetCPUUtilizationPercentage: 70
+
+# A PDB per workload so a voluntary disruption (node drain, cluster
+# upgrade) can't take every replica down at once — separate from the HPA
+# above, which only reacts to load, not maintenance events.
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+observability:
+  # Prometheus + Grafana, provisioned exactly like docker-compose.yml's
+  # local stack (ADR-006) — the same scrape config and dashboard JSON,
+  # mounted from ConfigMaps instead of bind mounts.
+  enabled: true
+  grafana:
+    adminUser: admin
+    # Overridden per-environment via --set or a Secret in real deployments —
+    # see backend-secrets' own CHANGE_ME placeholders for the same pattern.
+    adminPassword: "CHANGE_ME"
+    storage: 2Gi
+  prometheus:
+    storage: 5Gi
